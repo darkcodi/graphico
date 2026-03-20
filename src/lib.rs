@@ -3,6 +3,7 @@ pub mod camera;
 #[cfg(feature = "demo")]
 pub mod demo;
 pub mod graph;
+pub mod layout;
 pub mod render;
 pub mod spatial;
 pub mod ui;
@@ -43,6 +44,7 @@ impl Plugin for GraphicoPlugin {
         app.add_plugins((
             graph::GraphPlugin,
             spatial::SpatialPlugin,
+            layout::LayoutPlugin,
             camera::CameraPlugin,
             render::RenderPlugin,
             ui::UiPlugin,

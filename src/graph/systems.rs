@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use super::components::{ChunkCoord, GraphNode};
 use super::events::{AddEdgeEvent, AddNodeEvent, DeleteNodeEvent};
-use super::model::{EdgeData, GraphData, NodeData, NodeId};
+use super::model::{EdgeData, GraphData, NodeData};
 use crate::render::nodes::NodeCircleTexture;
 use crate::spatial::grid::{SpatialGrid, CHUNK_SIZE};
 
@@ -104,83 +104,6 @@ pub fn process_add_edge_events(
         } else {
             grid.insert_cross_edge(id, src_chunk);
             grid.insert_cross_edge(id, tgt_chunk);
-        }
-    }
-}
-
-#[derive(Resource, Default)]
-pub struct LayoutState {
-    pub pending_nodes: Vec<NodeId>,
-}
-
-pub fn incremental_layout(
-    mut graph: ResMut<GraphData>,
-    mut layout: ResMut<LayoutState>,
-    mut node_query: Query<(&GraphNode, &mut Transform)>,
-) {
-    if layout.pending_nodes.is_empty() {
-        return;
-    }
-
-    let iterations = layout.pending_nodes.len().min(100);
-    let nodes_to_process: Vec<NodeId> = layout.pending_nodes.drain(..iterations).collect();
-
-    for node_id in &nodes_to_process {
-        let Some(node_data) = graph.nodes.get(node_id) else {
-            continue;
-        };
-        let pos = node_data.position;
-
-        let mut force = Vec2::ZERO;
-        let mut neighbor_count = 0;
-
-        for (other_id, other_data) in graph.nodes.iter() {
-            if other_id == node_id {
-                continue;
-            }
-            let diff = pos - other_data.position;
-            let dist_sq = diff.length_squared();
-            if dist_sq < 10000.0 && dist_sq > 0.01 {
-                force += diff.normalize() * (500.0 / dist_sq.max(1.0));
-                neighbor_count += 1;
-            }
-            if neighbor_count > 20 {
-                break;
-            }
-        }
-
-        if let Some(edge_ids) = graph.adjacency.get(node_id) {
-            for edge_id in edge_ids.iter() {
-                if let Some(edge) = graph.edges.get(edge_id) {
-                    let other_id = if edge.source == *node_id {
-                        edge.target
-                    } else {
-                        edge.source
-                    };
-                    if let Some(other) = graph.nodes.get(&other_id) {
-                        let diff = other.position - pos;
-                        let dist = diff.length();
-                        if dist > 50.0 {
-                            force += diff.normalize() * (dist - 50.0) * 0.01;
-                        }
-                    }
-                }
-            }
-        }
-
-        let displacement = force * 0.5;
-        if displacement.length() > 0.1 {
-            let new_pos = pos + displacement;
-            if let Some(node_data) = graph.nodes.get_mut(node_id) {
-                node_data.position = new_pos;
-            }
-        }
-    }
-
-    for (graph_node, mut transform) in node_query.iter_mut() {
-        if let Some(node_data) = graph.nodes.get(&graph_node.id) {
-            transform.translation.x = node_data.position.x;
-            transform.translation.y = node_data.position.y;
         }
     }
 }
