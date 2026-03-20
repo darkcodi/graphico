@@ -3,9 +3,9 @@ use rand::Rng;
 use std::time::Duration;
 
 const API_BASE: &str = "http://127.0.0.1:3000";
-const NODES_PER_TICK: usize = 10;
+const NODES_PER_TICK: usize = 1;
 const MAX_NODES: usize = 50;
-const TICK_INTERVAL: Duration = Duration::from_millis(50);
+const TICK_INTERVAL: Duration = Duration::from_millis(500);
 
 pub struct DemoPlugin;
 
