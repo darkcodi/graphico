@@ -1,0 +1,25 @@
+pub mod edges;
+pub mod labels;
+pub mod lod;
+pub mod nodes;
+
+use bevy::prelude::*;
+
+use crate::GraphSystems;
+use labels::ActiveLabels;
+
+pub struct RenderPlugin;
+
+impl Plugin for RenderPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ActiveLabels>()
+            .add_systems(Startup, nodes::create_circle_texture)
+            .add_systems(
+                Update,
+                (
+                    labels::manage_labels.in_set(GraphSystems::VisibilityUpdate),
+                    lod::lod_visibility.in_set(GraphSystems::VisibilityUpdate),
+                ),
+            );
+    }
+}
