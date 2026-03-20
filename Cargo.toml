@@ -3,9 +3,18 @@ name = "graphico"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+demo = ["dep:ureq"]
+
 [dependencies]
 bevy = "0.18"
 rand = "0.9"
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+ureq = { version = "3", features = ["json"], optional = true }
 
 [profile.dev]
 opt-level = 1

@@ -1,4 +1,6 @@
+pub mod api;
 pub mod camera;
+#[cfg(feature = "demo")]
 pub mod demo;
 pub mod graph;
 pub mod render;
@@ -23,7 +25,6 @@ pub struct GraphicoPlugin;
 
 impl Plugin for GraphicoPlugin {
     fn build(&self, app: &mut App) {
-        // Configure system ordering
         app.configure_sets(
             Update,
             (
@@ -45,7 +46,10 @@ impl Plugin for GraphicoPlugin {
             camera::CameraPlugin,
             render::RenderPlugin,
             ui::UiPlugin,
-            demo::DemoPlugin,
+            api::ApiPlugin,
         ));
+
+        #[cfg(feature = "demo")]
+        app.add_plugins(demo::DemoPlugin);
     }
 }
