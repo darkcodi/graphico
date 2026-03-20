@@ -42,34 +42,51 @@ pub fn place_new_nodes(
         topology_changed = true;
 
         let mut rng = rand::rng();
-        let fallback_ring_radius = 500.0;
-        let fallback_count = new_ids.len();
 
-        for (i, id) in new_ids.iter().enumerate() {
-            let neighbor_positions = collect_neighbor_positions(id, &graph);
-
-            let position = if !neighbor_positions.is_empty() {
-                let centroid: Vec2 = neighbor_positions.iter().copied().sum::<Vec2>()
-                    / neighbor_positions.len() as f32;
-                let jitter = Vec2::new(
-                    rng.random_range(-params.jitter_radius..params.jitter_radius),
-                    rng.random_range(-params.jitter_radius..params.jitter_radius),
-                );
-                centroid + jitter
+        let mut isolated_new: Vec<crate::graph::model::NodeId> = Vec::new();
+        let mut connected_new: Vec<crate::graph::model::NodeId> = Vec::new();
+        for &id in &new_ids {
+            if collect_neighbor_positions(&id, &graph).is_empty() {
+                isolated_new.push(id);
             } else {
-                let angle =
-                    std::f32::consts::TAU * (i as f32 / fallback_count.max(1) as f32);
-                let jitter = rng.random_range(0.0..params.jitter_radius);
-                Vec2::new(
-                    (fallback_ring_radius + jitter) * angle.cos(),
-                    (fallback_ring_radius + jitter) * angle.sin(),
-                )
-            };
+                connected_new.push(id);
+            }
+        }
 
+        for id in &connected_new {
+            let neighbor_positions = collect_neighbor_positions(id, &graph);
+            let centroid: Vec2 = neighbor_positions.iter().copied().sum::<Vec2>()
+                / neighbor_positions.len() as f32;
+            let jitter = Vec2::new(
+                rng.random_range(-params.jitter_radius..params.jitter_radius),
+                rng.random_range(-params.jitter_radius..params.jitter_radius),
+            );
+            if let Some(node) = graph.nodes.get_mut(id) {
+                node.position = centroid + jitter;
+            }
+            engine.register_node(*id);
+        }
+
+        let total_isolated = graph
+            .nodes
+            .keys()
+            .filter(|id| graph.adjacency.get(id).map_or(true, |a| a.is_empty()))
+            .count();
+        let spacing = params.min_node_spacing * 1.5;
+        let min_ring_radius = (total_isolated as f32 * spacing) / std::f32::consts::TAU;
+        let fallback_ring_radius = min_ring_radius.max(100.0);
+
+        for (i, id) in isolated_new.iter().enumerate() {
+            let angle =
+                std::f32::consts::TAU * (i as f32 / isolated_new.len().max(1) as f32);
+            let jitter = rng.random_range(0.0..params.jitter_radius);
+            let position = Vec2::new(
+                (fallback_ring_radius + jitter) * angle.cos(),
+                (fallback_ring_radius + jitter) * angle.sin(),
+            );
             if let Some(node) = graph.nodes.get_mut(id) {
                 node.position = position;
             }
-
             engine.register_node(*id);
         }
     }
