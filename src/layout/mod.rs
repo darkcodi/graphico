@@ -21,8 +21,6 @@ impl Plugin for LayoutPlugin {
                 Update,
                 (
                     placement::place_new_nodes,
-                    forces::compute_layout_forces,
-                    forces::apply_displacement,
                     forces::sync_layout_positions,
                 )
                     .chain()

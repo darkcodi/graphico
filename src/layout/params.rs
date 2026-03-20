@@ -10,16 +10,12 @@ pub struct LayoutParams {
     pub gravity_strength: f32,
     /// Rest length for edge springs.
     pub ideal_edge_length: f32,
-    /// Velocity decay per step (0..1). Lower = more damping.
-    pub damping: f32,
     /// Maximum displacement per node per step.
     pub max_displacement: f32,
     /// Barnes-Hut opening angle threshold. Higher = faster but less accurate.
     pub theta: f32,
-    /// Maximum number of nodes to update forces for per frame.
-    pub work_budget: usize,
-    /// Layout stops iterating when average displacement falls below this.
-    pub convergence_threshold: f32,
+    /// Number of force iterations to run when solving the layout.
+    pub settling_iterations: u32,
     /// Random offset radius when placing new nodes near neighbors.
     pub jitter_radius: f32,
     /// Master switch to pause/resume layout.
@@ -33,11 +29,9 @@ impl Default for LayoutParams {
             attraction_strength: 1.0,
             gravity_strength: 1.0,
             ideal_edge_length: 100.0,
-            damping: 0.85,
             max_displacement: 50.0,
             theta: 1.2,
-            work_budget: 5000,
-            convergence_threshold: 0.01,
+            settling_iterations: 300,
             jitter_radius: 10.0,
             enabled: true,
         }
