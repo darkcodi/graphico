@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Mutex, mpsc, Arc, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 use uuid::Uuid;
 
 use crate::graph::model::NodeId;
@@ -80,6 +80,9 @@ pub struct SharedStateHandle(pub Arc<RwLock<SharedGraphState>>);
 
 #[derive(Resource)]
 pub struct ApiCommandReceiver(pub Mutex<mpsc::Receiver<ApiCommand>>);
+
+#[derive(Resource, Clone)]
+pub struct ApiCommandSender(pub mpsc::SyncSender<ApiCommand>);
 
 #[derive(Resource, Default)]
 pub struct NodeUuidRegistry {

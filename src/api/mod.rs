@@ -1,7 +1,8 @@
 pub mod handlers;
+pub mod snapshot;
 pub mod state;
 
-use std::sync::{Mutex, mpsc, Arc, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 
 use axum::routing::{delete, get, post, put};
 use axum::Router;
@@ -10,11 +11,15 @@ use rand::Rng;
 
 use crate::graph::events::{AddEdgeEvent, AddNodeEvent, DeleteNodeEvent, UpdateNodeEvent};
 use crate::graph::model::GraphData;
+use crate::persist::{
+    inject_load_creates, inject_load_edges, persist_snapshot_system, GraphPersistenceDirty,
+};
 use crate::GraphSystems;
 
+use snapshot::build_api_snapshot;
 use state::{
-    ApiCommand, ApiCommandReceiver, ApiNode, ApiPosition, AxumAppState, NodeUuidRegistry,
-    SharedGraphState, SharedStateHandle, color_to_hex,
+    ApiCommand, ApiCommandReceiver, ApiCommandSender, AxumAppState, NodeUuidRegistry,
+    SharedGraphState, SharedStateHandle,
 };
 
 pub struct ApiPlugin;
@@ -24,9 +29,11 @@ impl Plugin for ApiPlugin {
         let shared = Arc::new(RwLock::new(SharedGraphState::default()));
         let (cmd_tx, cmd_rx) = mpsc::sync_channel::<ApiCommand>(1024);
 
+        app.insert_resource(ApiCommandSender(cmd_tx.clone()));
+
         let axum_state = AxumAppState {
             shared: shared.clone(),
-            cmd_tx,
+            cmd_tx: cmd_tx.clone(),
         };
 
         std::thread::spawn(move || {
@@ -58,11 +65,21 @@ impl Plugin for ApiPlugin {
             .init_resource::<NodeUuidRegistry>()
             .add_systems(
                 Update,
-                api_command_system.before(GraphSystems::EventProcessing),
+                (
+                    inject_load_creates,
+                    inject_load_edges,
+                    api_command_system,
+                )
+                    .chain()
+                    .before(GraphSystems::EventProcessing),
             )
             .add_systems(
                 Update,
                 api_sync_system.after(GraphSystems::EventProcessing),
+            )
+            .add_systems(
+                Update,
+                persist_snapshot_system.after(api_sync_system),
             );
     }
 }
@@ -75,11 +92,14 @@ fn api_command_system(
     mut edge_events: MessageWriter<AddEdgeEvent>,
     mut delete_events: MessageWriter<DeleteNodeEvent>,
     mut update_events: MessageWriter<UpdateNodeEvent>,
+    mut persistence_dirty: ResMut<GraphPersistenceDirty>,
 ) {
     let mut rng = rand::rng();
 
     let rx = receiver.0.lock().unwrap();
+    let mut any_cmd = false;
     while let Ok(cmd) = rx.try_recv() {
+        any_cmd = true;
         match cmd {
             ApiCommand::CreateNode {
                 uuid,
@@ -166,6 +186,9 @@ fn api_command_system(
             }
         }
     }
+    if any_cmd {
+        persistence_dirty.0 = true;
+    }
 }
 
 fn api_sync_system(
@@ -173,45 +196,7 @@ fn api_sync_system(
     registry: Res<NodeUuidRegistry>,
     shared: Res<SharedStateHandle>,
 ) {
+    let snapshot = build_api_snapshot(&graph, &registry);
     let mut state = shared.0.write().unwrap();
-    state.nodes.clear();
-
-    for (uuid, &node_id) in &registry.uuid_to_node {
-        let Some(node_data) = graph.nodes.get(&node_id) else {
-            continue;
-        };
-
-        let mut neighbor_uuids = Vec::new();
-        if let Some(edge_ids) = graph.adjacency.get(&node_id) {
-            for edge_id in edge_ids {
-                if let Some(edge) = graph.edges.get(edge_id) {
-                    let other_id = if edge.source == node_id {
-                        edge.target
-                    } else {
-                        edge.source
-                    };
-                    if let Some(other_uuid) = registry.node_to_uuid.get(&other_id)
-                        && !neighbor_uuids.contains(other_uuid)
-                    {
-                        neighbor_uuids.push(*other_uuid);
-                    }
-                }
-            }
-        }
-
-        state.nodes.insert(
-            *uuid,
-            ApiNode {
-                id: *uuid,
-                name: node_data.name.clone(),
-                data: node_data.data.clone(),
-                color: color_to_hex(&node_data.color),
-                edges: neighbor_uuids,
-                position: ApiPosition {
-                    x: node_data.position.x,
-                    y: node_data.position.y,
-                },
-            },
-        );
-    }
+    state.nodes = snapshot;
 }

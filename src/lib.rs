@@ -3,6 +3,7 @@ pub mod camera;
 #[cfg(feature = "demo")]
 pub mod demo;
 pub mod graph;
+pub mod persist;
 pub mod render;
 pub mod spatial;
 pub mod ui;
@@ -46,6 +47,7 @@ impl Plugin for GraphicoPlugin {
             camera::CameraPlugin,
             render::RenderPlugin,
             ui::UiPlugin,
+            persist::PersistPlugin,
             api::ApiPlugin,
         ));
 
