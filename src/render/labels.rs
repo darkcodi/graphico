@@ -15,6 +15,12 @@ pub struct ActiveLabels {
 const LABEL_ZOOM_THRESHOLD: f32 = 2.0;
 /// Max labels to spawn per frame to avoid spikes.
 const MAX_LABEL_SPAWNS_PER_FRAME: usize = 50;
+/// Label text scales with node radius; tuned so default `radius == 1` reads smaller than a fixed 14pt.
+const FONT_PER_RADIUS: f32 = 6.0;
+const FONT_MIN: f32 = 4.0;
+const FONT_MAX: f32 = 22.0;
+/// Vertical gap above the node center, as a fraction of font size.
+const LABEL_OFFSET_EM: f32 = 0.4;
 
 fn ortho_scale(projection: &Projection) -> f32 {
     match projection {
@@ -56,20 +62,19 @@ pub fn manage_labels(
 
             if let Some(node_data) = graph.nodes.get(&graph_node.id) {
                 if !node_data.label.is_empty() {
+                    let font_size =
+                        (node_data.radius * FONT_PER_RADIUS).clamp(FONT_MIN, FONT_MAX);
+                    let label_y = node_data.radius + font_size * LABEL_OFFSET_EM;
                     let label_entity = commands
                         .spawn((
                             NodeLabel,
                             Text2d::new(&node_data.label),
                             TextFont {
-                                font_size: 14.0,
+                                font_size,
                                 ..default()
                             },
                             TextColor(Color::WHITE),
-                            Transform::from_translation(Vec3::new(
-                                0.0,
-                                node_data.radius + 8.0,
-                                2.0,
-                            )),
+                            Transform::from_translation(Vec3::new(0.0, label_y, 2.0)),
                         ))
                         .id();
                     commands.entity(entity).add_child(label_entity);
