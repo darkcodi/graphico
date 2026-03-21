@@ -93,7 +93,7 @@ pub struct SharedStateHandle(pub Arc<RwLock<SharedGraphState>>);
 pub struct ApiCommandReceiver(pub Mutex<mpsc::Receiver<ApiCommand>>);
 
 #[derive(Resource, Clone)]
-pub struct ApiCommandSender(pub mpsc::SyncSender<ApiCommand>);
+pub struct ApiCommandSender(pub mpsc::Sender<ApiCommand>);
 
 #[derive(Resource, Default)]
 pub struct NodeUuidRegistry {
@@ -148,5 +148,5 @@ pub fn color_to_hex(color: &Color) -> String {
 #[derive(Clone)]
 pub struct AxumAppState {
     pub shared: Arc<RwLock<SharedGraphState>>,
-    pub cmd_tx: mpsc::SyncSender<ApiCommand>,
+    pub cmd_tx: mpsc::Sender<ApiCommand>,
 }

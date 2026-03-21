@@ -16,6 +16,9 @@ use crate::persist::{
 use crate::GraphSystems;
 
 use snapshot::build_api_snapshot;
+
+/// Limits work per frame so restore and bulk API calls cannot stall the main thread.
+const MAX_API_COMMANDS_PER_FRAME: usize = 256;
 use state::{
     ApiCommand, ApiCommandReceiver, ApiCommandSender, AxumAppState, NodeUuidRegistry,
     SharedGraphState, SharedStateHandle,
@@ -26,7 +29,7 @@ pub struct ApiPlugin;
 impl Plugin for ApiPlugin {
     fn build(&self, app: &mut App) {
         let shared = Arc::new(RwLock::new(SharedGraphState::default()));
-        let (cmd_tx, cmd_rx) = mpsc::sync_channel::<ApiCommand>(1024);
+        let (cmd_tx, cmd_rx) = mpsc::channel::<ApiCommand>();
 
         app.insert_resource(ApiCommandSender(cmd_tx.clone()));
 
@@ -103,7 +106,10 @@ fn api_command_system(
 ) {
     let rx = receiver.0.lock().unwrap();
     let mut any_cmd = false;
-    while let Ok(cmd) = rx.try_recv() {
+    for _ in 0..MAX_API_COMMANDS_PER_FRAME {
+        let Ok(cmd) = rx.try_recv() else {
+            break;
+        };
         any_cmd = true;
         match cmd {
             ApiCommand::CreateNode {
@@ -212,6 +218,15 @@ fn api_sync_system(
     registry: Res<NodeUuidRegistry>,
     shared: Res<SharedStateHandle>,
 ) {
+    use bevy::ecs::change_detection::DetectChanges;
+
+    if !graph.is_changed()
+        && !graph.is_added()
+        && !registry.is_changed()
+        && !registry.is_added()
+    {
+        return;
+    }
     let snapshot = build_api_snapshot(&graph, &registry);
     let mut state = shared.0.write().unwrap();
     state.nodes = snapshot;

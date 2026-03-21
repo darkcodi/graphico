@@ -9,9 +9,8 @@ use rusqlite::{params, Connection, TransactionBehavior};
 use uuid::Uuid;
 
 use crate::api::state::{
-    ApiCommand, ApiNode, ApiPosition, NodeUuidRegistry, parse_hex_color,
+    ApiCommand, ApiNode, ApiPosition, NodeUuidRegistry, SharedStateHandle, parse_hex_color,
 };
-use crate::graph::model::GraphData;
 
 /// Override with `GRAPHICO_DB_PATH` to use a custom database file.
 pub fn database_path() -> PathBuf {
@@ -255,8 +254,7 @@ pub fn inject_load_edges(
 
 pub fn persist_snapshot_system(
     mut dirty: ResMut<GraphPersistenceDirty>,
-    graph: Res<GraphData>,
-    registry: Res<NodeUuidRegistry>,
+    shared: Res<SharedStateHandle>,
     conn: Res<PersistConnection>,
 ) {
     if !dirty.0 {
@@ -268,7 +266,7 @@ pub fn persist_snapshot_system(
         return;
     };
 
-    let snapshot = crate::api::snapshot::build_api_snapshot(&graph, &registry);
+    let snapshot = shared.0.read().unwrap().nodes.clone();
     let mut guard = match mutex.lock() {
         Ok(g) => g,
         Err(e) => {
