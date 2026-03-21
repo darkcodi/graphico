@@ -1,151 +1,85 @@
 use bevy::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use crate::graph::model::{GraphData, NodeId};
-
-use super::params::LayoutParams;
-use super::quadtree::QuadTree;
+use crate::graph::model::NodeId;
 
 /// Persistent layout state that survives across frames.
-///
-/// When a topology change is detected, `solve()` runs the full iterative
-/// force-directed layout synchronously within a single frame. Between
-/// topology changes the engine is completely idle.
 #[derive(Resource)]
 pub struct LayoutEngine {
-    /// Set of node IDs the engine knows about.
-    pub known_nodes: HashSet<NodeId>,
-    /// Per-node force accumulator, used internally by `solve()`.
-    forces: HashMap<NodeId, Vec2>,
-    /// Snapshot of the graph's edge count, used to detect edge-only topology changes.
-    pub last_edge_count: usize,
+    /// Per-node velocity vectors, accumulated between frames.
+    pub velocities: HashMap<NodeId, Vec2>,
+    /// Per-node previous force, used for swing/traction calculation.
+    pub prev_forces: HashMap<NodeId, Vec2>,
+    /// Per-node force accumulator, cleared at the start of each step.
+    pub forces: HashMap<NodeId, Vec2>,
+    /// ForceAtlas2 global speed factor (adapts automatically).
+    pub global_speed: f32,
+    /// Sum of per-node swing across last step.
+    pub global_swing: f32,
+    /// Sum of per-node traction across last step.
+    pub global_traction: f32,
+    /// True when average displacement fell below the convergence threshold.
+    pub is_converged: bool,
+    /// Round-robin cursor: index into the node list for work-budget cycling.
+    pub round_robin_cursor: usize,
 }
 
 impl Default for LayoutEngine {
     fn default() -> Self {
         Self {
-            known_nodes: HashSet::new(),
+            velocities: HashMap::new(),
+            prev_forces: HashMap::new(),
             forces: HashMap::new(),
-            last_edge_count: 0,
+            global_speed: 1.0,
+            global_swing: 0.0,
+            global_traction: 0.0,
+            is_converged: false,
+            round_robin_cursor: 0,
         }
     }
 }
 
 impl LayoutEngine {
+    /// Register a node with zero velocity.
     pub fn register_node(&mut self, id: NodeId) {
-        self.known_nodes.insert(id);
+        self.velocities.entry(id).or_insert(Vec2::ZERO);
+        self.prev_forces.entry(id).or_insert(Vec2::ZERO);
+        self.is_converged = false;
     }
 
+    /// Remove all state for a deleted node.
     pub fn remove_node(&mut self, id: &NodeId) {
-        self.known_nodes.remove(id);
+        self.velocities.remove(id);
+        self.prev_forces.remove(id);
         self.forces.remove(id);
     }
 
-    pub fn knows_node(&self, id: &NodeId) -> bool {
-        self.known_nodes.contains(id)
+    /// Clear force accumulators for the upcoming computation step.
+    pub fn clear_forces(&mut self) {
+        for f in self.forces.values_mut() {
+            *f = Vec2::ZERO;
+        }
     }
 
-    /// Run the full force-directed layout to convergence in one shot.
-    /// All iterations execute synchronously within this call.
-    pub fn solve(&mut self, graph: &mut GraphData, params: &LayoutParams) {
-        let total = params.settling_iterations.max(1);
-        let all_ids: Vec<NodeId> = self.known_nodes.iter().copied().collect();
-        let node_count = all_ids.len();
-        if node_count == 0 {
-            return;
+    /// Ensure the forces map has an entry for every known node.
+    pub fn ensure_force_entries(&mut self) {
+        for &id in self.velocities.keys() {
+            self.forces.entry(id).or_insert(Vec2::ZERO);
         }
+    }
 
-        let repulsion_k = params.repulsion_strength * (1.0 + node_count as f32).ln();
+    /// Returns true if `id` is already tracked by the engine.
+    pub fn knows_node(&self, id: &NodeId) -> bool {
+        self.velocities.contains_key(id)
+    }
 
-        for iteration in 0..total {
-            let temperature = 1.0 - (iteration as f32 / total as f32);
-
-            let bodies: Vec<(Vec2, f32)> = graph
-                .nodes
-                .values()
-                .map(|n| (n.position, 1.0))
-                .collect();
-            let tree = QuadTree::build(&bodies);
-
-            // Clear forces
-            for f in self.forces.values_mut() {
-                *f = Vec2::ZERO;
-            }
-            for &id in &self.known_nodes {
-                self.forces.entry(id).or_insert(Vec2::ZERO);
-            }
-
-            let centroid: Vec2 = graph.nodes.values().map(|n| n.position).sum::<Vec2>()
-                / graph.nodes.len().max(1) as f32;
-
-            // Compute forces for every node
-            for &id in &all_ids {
-                let Some(node) = graph.nodes.get(&id) else {
-                    continue;
-                };
-                let pos = node.position;
-                let mass =
-                    1.0 + graph.adjacency.get(&id).map_or(0, |a| a.len()) as f32;
-
-                let mut force = Vec2::ZERO;
-
-                force += tree.compute_repulsion(pos, mass, params.theta, repulsion_k);
-
-                if let Some(edge_ids) = graph.adjacency.get(&id) {
-                    for eid in edge_ids {
-                        let Some(edge) = graph.edges.get(eid) else {
-                            continue;
-                        };
-                        let neighbor_id = if edge.source == id {
-                            edge.target
-                        } else {
-                            edge.source
-                        };
-                        let Some(neighbor) = graph.nodes.get(&neighbor_id) else {
-                            continue;
-                        };
-                        let diff = neighbor.position - pos;
-                        let dist = diff.length();
-                        if dist > 0.001 {
-                            force += diff.normalize()
-                                * params.attraction_strength
-                                * (dist - params.ideal_edge_length);
-                        }
-                    }
-                }
-
-                let to_center = centroid - pos;
-                let center_dist = to_center.length();
-                if center_dist > 0.001 {
-                    force += to_center.normalize()
-                        * params.gravity_strength
-                        * mass
-                        * center_dist.ln().max(0.0);
-                }
-
-                if let Some(f) = self.forces.get_mut(&id) {
-                    *f = force;
-                }
-            }
-
-            // Apply displacement scaled by temperature
-            let force_snapshot: Vec<(NodeId, Vec2)> = self
-                .forces
-                .iter()
-                .filter(|(_, f)| f.length_squared() > 0.0)
-                .map(|(&id, &f)| (id, f))
-                .collect();
-
-            for (id, force) in force_snapshot {
-                let mut displacement = force * temperature;
-                let len = displacement.length();
-                if len > params.max_displacement {
-                    displacement *= params.max_displacement / len;
-                }
-                if let Some(node) = graph.nodes.get_mut(&id) {
-                    node.position += displacement;
-                }
-            }
+    /// Adapt the global speed using ForceAtlas2's swing/traction heuristic.
+    pub fn adapt_speed(&mut self) {
+        if self.global_traction > 0.0 {
+            let tolerance = 1.0;
+            let target = tolerance * self.global_traction / self.global_swing.max(0.001);
+            self.global_speed += (target - self.global_speed) * 0.1;
+            self.global_speed = self.global_speed.clamp(0.01, 10.0);
         }
     }
 }
