@@ -81,6 +81,7 @@ fn api_command_system(
         match cmd {
             ApiCommand::CreateNode {
                 uuid,
+                name,
                 data,
                 color,
                 edges,
@@ -96,6 +97,7 @@ fn api_command_system(
 
                 node_events.write(AddNodeEvent {
                     position,
+                    name,
                     data,
                     color: bevy_color,
                     pre_allocated_id: Some(node_id),
@@ -156,6 +158,7 @@ fn api_sync_system(
             *uuid,
             ApiNode {
                 id: *uuid,
+                name: node_data.name.clone(),
                 data: node_data.data.clone(),
                 color: color_to_hex(&node_data.color),
                 edges: neighbor_uuids,

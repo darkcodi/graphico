@@ -18,7 +18,7 @@ pub fn process_add_node_events(
             .pre_allocated_id
             .unwrap_or_else(|| graph.next_node_id());
         let position = event.position;
-        let size = estimate_text_size(&event.data);
+        let size = estimate_text_size(&event.name);
 
         let chunk_x = (position.x / CHUNK_SIZE).floor() as i32;
         let chunk_y = (position.y / CHUNK_SIZE).floor() as i32;
@@ -44,6 +44,7 @@ pub fn process_add_node_events(
             id,
             NodeData {
                 position,
+                name: event.name.clone(),
                 data: event.data.clone(),
                 color: event.color,
                 size,

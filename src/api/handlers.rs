@@ -20,6 +20,7 @@ pub async fn create_node(
 
     let cmd = ApiCommand::CreateNode {
         uuid,
+        name: body.name,
         data: body.data,
         color,
         edges,

@@ -82,7 +82,7 @@ pub fn manage_labels(
             }
 
             if let Some(node_data) = graph.nodes.get(&graph_node.id) {
-                if !node_data.data.is_empty() {
+                if !node_data.name.is_empty() {
                     let base_font_size = FONT_SIZE;
                     let ortho = scale.clamp(ORTHO_SCALE_MIN, ORTHO_SCALE_MAX);
                     let target_raster =
@@ -95,7 +95,7 @@ pub fn manage_labels(
                                 base_font_size,
                                 base_y: 0.0,
                             },
-                            Text2d::new(&node_data.data),
+                            Text2d::new(&node_data.name),
                             TextBounds::from(node_data.size),
                             TextFont {
                                 font_size: target_raster,

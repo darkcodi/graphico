@@ -82,11 +82,14 @@ fn demo_loop() {
     let parent = random_tree_parents(&mut rng, MAX_NODES);
     let depth = depths_from_parents(&parent);
 
+    let name_strings: Vec<String> = (0..MAX_NODES)
+        .map(|i| format!("N{}", i + 1))
+        .collect();
     let data_strings: Vec<String> = (0..MAX_NODES)
-        .map(|i| format!("N{}\nDepth: {}", i + 1, depth[i]))
+        .map(|i| format!("Depth: {}\nIndex: {}", depth[i], i))
         .collect();
 
-    let positions = layered_positions(&depth, &data_strings);
+    let positions = layered_positions(&depth, &name_strings);
 
     let mut i = 0usize;
     while i < MAX_NODES {
@@ -104,10 +107,12 @@ fn demo_loop() {
                 vec![created_ids[parent[i]].as_str()]
             };
 
+            let name = &name_strings[i];
             let data = &data_strings[i];
             let pos = positions[i];
 
             let body = serde_json::json!({
+                "name": name,
                 "data": data,
                 "color": color,
                 "edges": edges,

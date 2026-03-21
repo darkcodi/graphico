@@ -5,6 +5,7 @@ use super::model::NodeId;
 #[derive(Message)]
 pub struct AddNodeEvent {
     pub position: Vec2,
+    pub name: String,
     pub data: String,
     pub color: Color,
     /// Pre-allocated NodeId from the API layer. When `Some`, the event
