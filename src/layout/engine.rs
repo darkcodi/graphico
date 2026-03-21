@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use rand::Rng;
 use std::collections::{HashMap, HashSet};
 
 use crate::graph::model::{GraphData, NodeId};
@@ -56,21 +55,19 @@ impl LayoutEngine {
             return;
         }
 
-        let repulsion_k =
-            params.repulsion_strength * params.ideal_edge_length * params.ideal_edge_length;
-        let min_spacing = params.min_node_spacing;
-        let mut rng = rand::rng();
+        let repulsion_k = params.repulsion_strength * (1.0 + node_count as f32).ln();
 
         for iteration in 0..total {
             let temperature = 1.0 - (iteration as f32 / total as f32);
 
-            let bodies: Vec<(Vec2, f32)> = all_ids
-                .iter()
-                .filter_map(|id| graph.nodes.get(id))
+            let bodies: Vec<(Vec2, f32)> = graph
+                .nodes
+                .values()
                 .map(|n| (n.position, 1.0))
                 .collect();
             let tree = QuadTree::build(&bodies);
 
+            // Clear forces
             for f in self.forces.values_mut() {
                 *f = Vec2::ZERO;
             }
@@ -81,13 +78,14 @@ impl LayoutEngine {
             let centroid: Vec2 = graph.nodes.values().map(|n| n.position).sum::<Vec2>()
                 / graph.nodes.len().max(1) as f32;
 
+            // Compute forces for every node
             for &id in &all_ids {
                 let Some(node) = graph.nodes.get(&id) else {
                     continue;
                 };
                 let pos = node.position;
-                let degree = graph.adjacency.get(&id).map_or(0, |a| a.len());
-                let mass = 1.0 + degree as f32;
+                let mass =
+                    1.0 + graph.adjacency.get(&id).map_or(0, |a| a.len()) as f32;
 
                 let mut force = Vec2::ZERO;
 
@@ -119,7 +117,10 @@ impl LayoutEngine {
                 let to_center = centroid - pos;
                 let center_dist = to_center.length();
                 if center_dist > 0.001 {
-                    force += to_center.normalize() * params.gravity_strength * mass;
+                    force += to_center.normalize()
+                        * params.gravity_strength
+                        * mass
+                        * center_dist.ln().max(0.0);
                 }
 
                 if let Some(f) = self.forces.get_mut(&id) {
@@ -127,35 +128,7 @@ impl LayoutEngine {
                 }
             }
 
-            // Pairwise overlap separation for nodes closer than min_node_spacing
-            for i in 0..all_ids.len() {
-                for j in (i + 1)..all_ids.len() {
-                    let id_a = all_ids[i];
-                    let id_b = all_ids[j];
-                    let (pos_a, pos_b) = match (graph.nodes.get(&id_a), graph.nodes.get(&id_b)) {
-                        (Some(a), Some(b)) => (a.position, b.position),
-                        _ => continue,
-                    };
-                    let diff = pos_a - pos_b;
-                    let dist = diff.length();
-                    if dist < min_spacing {
-                        let direction = if dist > 0.001 {
-                            diff.normalize()
-                        } else {
-                            let angle = rng.random_range(0.0..std::f32::consts::TAU);
-                            Vec2::new(angle.cos(), angle.sin())
-                        };
-                        let push = direction * (min_spacing - dist) * 0.5;
-                        if let Some(f) = self.forces.get_mut(&id_a) {
-                            *f += push;
-                        }
-                        if let Some(f) = self.forces.get_mut(&id_b) {
-                            *f -= push;
-                        }
-                    }
-                }
-            }
-
+            // Apply displacement scaled by temperature
             let force_snapshot: Vec<(NodeId, Vec2)> = self
                 .forces
                 .iter()
@@ -174,37 +147,5 @@ impl LayoutEngine {
                 }
             }
         }
-
-        fit_graph_to_screen(graph, params);
-    }
-}
-
-/// Center the graph at the origin and uniformly scale so its bounding box (including radii)
-/// fits inside a square of side `2 * fit_half_extent` minus padding.
-fn fit_graph_to_screen(graph: &mut GraphData, params: &LayoutParams) {
-    if !params.fit_to_screen || graph.nodes.is_empty() {
-        return;
-    }
-
-    let half = params.fit_half_extent.max(1.0);
-    let pad = params.fit_padding.max(0.0);
-
-    let mut min = Vec2::splat(f32::MAX);
-    let mut max = Vec2::splat(f32::MIN);
-    for n in graph.nodes.values() {
-        let r = n.radius;
-        min = min.min(n.position - Vec2::splat(r));
-        max = max.max(n.position + Vec2::splat(r));
-    }
-
-    let center = (min + max) * 0.5;
-    let extent = max - min;
-    let max_dim = extent.x.max(extent.y).max(1.0e-4);
-
-    let inner = (half * 2.0 - pad * 2.0).max(1.0);
-    let scale = inner / max_dim;
-
-    for n in graph.nodes.values_mut() {
-        n.position = (n.position - center) * scale;
     }
 }

@@ -16,9 +16,6 @@ pub fn sync_layout_positions(
             continue;
         };
 
-        let pos_changed = xform.translation.x != node.position.x
-            || xform.translation.y != node.position.y;
-
         xform.translation.x = node.position.x;
         xform.translation.y = node.position.y;
 
@@ -83,11 +80,6 @@ pub fn sync_layout_positions(
 
             chunk.x = new_cx;
             chunk.y = new_cy;
-        } else if pos_changed {
-            let current_chunk = IVec2::new(chunk.x, chunk.y);
-            if let Some(c) = grid.cells.get_mut(&current_chunk) {
-                c.dirty = true;
-            }
         }
     }
 }

@@ -196,8 +196,7 @@ impl QuadTree {
             if dist < 0.001 {
                 return Vec2::ZERO;
             }
-            let effective_dist = dist.max(1.0);
-            let strength = k_r * mass * node.total_mass / effective_dist;
+            let strength = k_r * mass * node.total_mass / dist;
             return diff.normalize() * strength;
         }
 
