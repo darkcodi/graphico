@@ -1,6 +1,6 @@
 {
   "name": "graphico_create_nodes_bulk",
-  "description": "Create multiple nodes in one request. Returns JSON with `ids` in order. Proxies POST /nodes/bulk.",
+  "description": "Create multiple graph nodes in one request. Returns JSON with `ids` in the same order as the input.",
   "arguments": {
     "type": "object",
     "properties": {

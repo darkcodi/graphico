@@ -1,4 +1,4 @@
-//! MCP server that proxies Graphico's REST API (`/nodes`, `POST /nodes/bulk`, `DELETE /nodes`, `/nodes/{id}`) over stdio.
+//! MCP server for Graphico over stdio.
 //! Set `GRAPHICO_API_URL` to override the default `http://127.0.0.1:3000`.
 
 use anyhow::{Context, Result};
@@ -79,7 +79,7 @@ impl GraphicoMcp {
     }
 
     #[tool(
-        description = "Create a new node. Returns JSON with the new node's id. Proxies POST /nodes."
+        description = "Create a new graph node. Returns JSON with the new node's id."
     )]
     async fn graphico_create_node(
         &self,
@@ -105,7 +105,7 @@ impl GraphicoMcp {
     }
 
     #[tool(
-        description = "Create multiple nodes in one request. Returns JSON with `ids` in order. Proxies POST /nodes/bulk."
+        description = "Create multiple graph nodes in one request. Returns JSON with `ids` in the same order as the input."
     )]
     async fn graphico_create_nodes_bulk(
         &self,
@@ -134,7 +134,7 @@ impl GraphicoMcp {
         tool_result_from_response(resp).await
     }
 
-    #[tool(description = "Fetch a single node by UUID. Proxies GET /nodes/{id}.")]
+    #[tool(description = "Fetch a single graph node by UUID.")]
     async fn graphico_get_node(
         &self,
         Parameters(args): Parameters<GraphicoNodeIdArgs>,
@@ -150,7 +150,7 @@ impl GraphicoMcp {
         tool_result_from_response(resp).await
     }
 
-    #[tool(description = "List all nodes. Proxies GET /nodes.")]
+    #[tool(description = "List all graph nodes.")]
     async fn graphico_list_nodes(&self) -> Result<CallToolResult, McpError> {
         let url = format!("{}/nodes", self.base.trim_end_matches('/'));
         let resp = self
@@ -163,7 +163,7 @@ impl GraphicoMcp {
     }
 
     #[tool(
-        description = "Partially update a node. Proxies PUT /nodes/{id}. Only `id` is required; omit other fields to leave them unchanged. Returns 204 on success."
+        description = "Partially update a graph node. Only `id` is required; omit other fields to leave them unchanged."
     )]
     async fn graphico_update_node(
         &self,
@@ -182,7 +182,7 @@ impl GraphicoMcp {
         tool_result_from_response(resp).await
     }
 
-    #[tool(description = "Delete a node by UUID. Proxies DELETE /nodes/{id}. Returns 204 on success.")]
+    #[tool(description = "Delete a graph node by UUID.")]
     async fn graphico_delete_node(
         &self,
         Parameters(args): Parameters<GraphicoNodeIdArgs>,
@@ -199,7 +199,7 @@ impl GraphicoMcp {
     }
 
     #[tool(
-        description = "Delete all nodes. Proxies DELETE /nodes. Returns 204 on success (including when the graph is already empty)."
+        description = "Delete every node in the graph (no-op if the graph is already empty)."
     )]
     async fn graphico_delete_all_nodes(&self) -> Result<CallToolResult, McpError> {
         let url = format!("{}/nodes", self.base.trim_end_matches('/'));
@@ -224,7 +224,7 @@ impl ServerHandler for GraphicoMcp {
         .with_server_info(Implementation::from_build_env())
         .with_protocol_version(ProtocolVersion::V_2024_11_05)
         .with_instructions(
-            "Proxies the Graphico HTTP API. Run the Graphico app so the API is available (default http://127.0.0.1:3000). Override with GRAPHICO_API_URL."
+            "Run the Graphico app so the server is reachable (default http://127.0.0.1:3000). Override with GRAPHICO_API_URL."
                 .to_string(),
         )
     }
