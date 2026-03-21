@@ -7,7 +7,6 @@ use std::sync::{mpsc, Arc, Mutex, RwLock};
 use axum::routing::{get, post};
 use axum::Router;
 use bevy::prelude::*;
-use rand::Rng;
 
 use crate::graph::events::{AddEdgeEvent, AddNodeEvent, DeleteNodeEvent, UpdateNodeEvent};
 use crate::graph::model::{GraphData, NodeId};
@@ -102,8 +101,6 @@ fn api_command_system(
     mut update_events: MessageWriter<UpdateNodeEvent>,
     mut persistence_dirty: ResMut<GraphPersistenceDirty>,
 ) {
-    let mut rng = rand::rng();
-
     let rx = receiver.0.lock().unwrap();
     let mut any_cmd = false;
     while let Ok(cmd) = rx.try_recv() {
@@ -122,7 +119,7 @@ fn api_command_system(
 
                 let bevy_color = match color {
                     Some([r, g, b]) => Color::srgb(r, g, b),
-                    None => Color::hsl(rng.random_range(0.0..360.0), 0.7, 0.6),
+                    None => Color::srgb(0.5, 0.5, 0.5),
                 };
 
                 node_events.write(AddNodeEvent {

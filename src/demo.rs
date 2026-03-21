@@ -9,9 +9,6 @@ const NODES_PER_TICK: usize = 10;
 const MAX_NODES: usize = 1000;
 const TICK_INTERVAL: Duration = Duration::from_millis(50);
 
-const RECOLOR_BURST: usize = 10;
-const RECOLOR_BURST_INTERVAL: Duration = Duration::from_millis(100);
-
 /// Horizontal gap between adjacent node rectangles.
 const H_GAP: f32 = 16.0;
 /// Vertical gap between depth levels.
@@ -101,9 +98,6 @@ fn demo_loop() {
                 break;
             }
 
-            let hue: f32 = rng.random_range(0.0..360.0);
-            let color = hsl_to_hex(hue, 0.7, 0.6);
-
             let edges: Vec<&str> = if i == 0 {
                 vec![]
             } else {
@@ -117,7 +111,6 @@ fn demo_loop() {
             let body = serde_json::json!({
                 "name": name,
                 "data": data,
-                "color": color,
                 "edges": edges,
                 "position": { "x": pos.x, "y": pos.y },
             });
@@ -143,79 +136,4 @@ fn demo_loop() {
     }
 
     info!("demo: finished generating {MAX_NODES} nodes");
-
-    info!(
-        "demo: recoloring nodes in bursts of {RECOLOR_BURST} every {:?}",
-        RECOLOR_BURST_INTERVAL
-    );
-
-    let mut start = 0usize;
-    while start < MAX_NODES {
-        let end = (start + RECOLOR_BURST).min(MAX_NODES);
-        for i in start..end {
-            let hue: f32 = rng.random_range(0.0..360.0);
-            let color = hsl_to_hex(hue, 0.7, 0.6);
-
-            let edges: Vec<&str> = if i == 0 {
-                vec![]
-            } else {
-                vec![created_ids[parent[i]].as_str()]
-            };
-
-            let name = &name_strings[i];
-            let data = &data_strings[i];
-            let pos = positions[i];
-            let id = &created_ids[i];
-
-            let body = serde_json::json!({
-                "name": name,
-                "data": data,
-                "color": color,
-                "edges": edges,
-                "position": { "x": pos.x, "y": pos.y },
-            });
-
-            match agent
-                .put(format!("{API_BASE}/nodes/{id}"))
-                .send_json(&body)
-            {
-                Ok(resp) => {
-                    let status = resp.status();
-                    if !status.is_success() {
-                        warn!("demo: PUT /nodes/{{id}} failed: {status}");
-                    }
-                }
-                Err(e) => {
-                    warn!("demo: PUT /nodes/{{id}} failed: {e}");
-                    std::thread::sleep(Duration::from_secs(2));
-                }
-            }
-        }
-
-        start = end;
-        if start < MAX_NODES {
-            std::thread::sleep(RECOLOR_BURST_INTERVAL);
-        }
-    }
-
-    info!("demo: finished recolor pass");
-}
-
-fn hsl_to_hex(h: f32, s: f32, l: f32) -> String {
-    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
-    let h2 = h / 60.0;
-    let x = c * (1.0 - (h2 % 2.0 - 1.0).abs());
-    let (r1, g1, b1) = match h2 as u32 {
-        0 => (c, x, 0.0),
-        1 => (x, c, 0.0),
-        2 => (0.0, c, x),
-        3 => (0.0, x, c),
-        4 => (x, 0.0, c),
-        _ => (c, 0.0, x),
-    };
-    let m = l - c / 2.0;
-    let r = ((r1 + m) * 255.0) as u8;
-    let g = ((g1 + m) * 255.0) as u8;
-    let b = ((b1 + m) * 255.0) as u8;
-    format!("#{r:02X}{g:02X}{b:02X}")
 }
