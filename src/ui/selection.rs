@@ -39,8 +39,9 @@ pub fn handle_selection(
         let dist = (world_pos - node_pos).length();
 
         if let Some(node_data) = graph.nodes.get(&graph_node.id) {
-            let hit_radius = node_data.radius * 1.5; // generous hit area
-            if dist < hit_radius {
+            let half = node_data.size * 0.5 * 1.2;
+            let delta = world_pos - node_pos;
+            if delta.x.abs() < half.x && delta.y.abs() < half.y {
                 if closest.is_none() || dist < closest.unwrap().1 {
                     closest = Some((entity, dist));
                 }
@@ -95,11 +96,11 @@ pub fn handle_hover(
     // Find closest node under cursor
     for (entity, graph_node, transform) in nodes_q.iter() {
         let node_pos = transform.translation.truncate();
-        let dist = (world_pos - node_pos).length();
 
         if let Some(node_data) = graph.nodes.get(&graph_node.id) {
-            let hit_radius = node_data.radius * 1.5;
-            if dist < hit_radius {
+            let half = node_data.size * 0.5 * 1.2;
+            let delta = world_pos - node_pos;
+            if delta.x.abs() < half.x && delta.y.abs() < half.y {
                 commands.entity(entity).insert(Hovered);
                 break;
             }

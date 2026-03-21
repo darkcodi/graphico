@@ -2,39 +2,14 @@ use bevy::image::Image;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-/// Holds the shared circle texture used for all node sprites.
+/// Holds the shared rectangle texture used for all node sprites.
 #[derive(Resource)]
-pub struct NodeCircleTexture(pub Handle<Image>);
+pub struct NodeRectTexture(pub Handle<Image>);
 
-/// Create a small white circle texture at startup.
-pub fn create_circle_texture(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let size = 64u32;
-    let center = size as f32 / 2.0;
-    let radius = center - 1.0;
-
-    let mut data = vec![0u8; (size * size * 4) as usize];
-
-    for y in 0..size {
-        for x in 0..size {
-            let dx = x as f32 - center + 0.5;
-            let dy = y as f32 - center + 0.5;
-            let dist = (dx * dx + dy * dy).sqrt();
-
-            let alpha = if dist <= radius - 1.0 {
-                255
-            } else if dist <= radius {
-                ((radius - dist) * 255.0) as u8
-            } else {
-                0
-            };
-
-            let idx = ((y * size + x) * 4) as usize;
-            data[idx] = 255; // R
-            data[idx + 1] = 255; // G
-            data[idx + 2] = 255; // B
-            data[idx + 3] = alpha; // A
-        }
-    }
+/// Create a small solid white texture at startup (stretches to any rectangle size).
+pub fn create_rect_texture(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    let size = 4u32;
+    let data = vec![255u8; (size * size * 4) as usize];
 
     let image = Image::new(
         Extent3d {
@@ -49,5 +24,28 @@ pub fn create_circle_texture(mut commands: Commands, mut images: ResMut<Assets<I
     );
 
     let handle = images.add(image);
-    commands.insert_resource(NodeCircleTexture(handle));
+    commands.insert_resource(NodeRectTexture(handle));
+}
+
+/// Estimate node rectangle size from multi-line text content.
+pub fn estimate_text_size(data: &str) -> Vec2 {
+    const CHAR_WIDTH: f32 = 7.0;
+    const LINE_HEIGHT: f32 = 16.0;
+    const PADDING_H: f32 = 20.0;
+    const PADDING_V: f32 = 14.0;
+    const MIN_WIDTH: f32 = 40.0;
+    const MIN_HEIGHT: f32 = 24.0;
+
+    if data.is_empty() {
+        return Vec2::new(MIN_WIDTH, MIN_HEIGHT);
+    }
+
+    let lines: Vec<&str> = data.lines().collect();
+    let num_lines = lines.len().max(1) as f32;
+    let max_line_len = lines.iter().map(|l| l.len()).max().unwrap_or(1) as f32;
+
+    let width = (max_line_len * CHAR_WIDTH + PADDING_H).max(MIN_WIDTH);
+    let height = (num_lines * LINE_HEIGHT + PADDING_V).max(MIN_HEIGHT);
+
+    Vec2::new(width, height)
 }

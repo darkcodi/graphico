@@ -21,7 +21,7 @@ pub fn lod_visibility(
 
     for (graph_node, mut visibility) in nodes_q.iter_mut() {
         if let Some(node_data) = graph.nodes.get(&graph_node.id) {
-            let screen_size = (node_data.radius * 2.0) / scale;
+            let screen_size = node_data.size.x.max(node_data.size.y) / scale;
             if screen_size < 0.5 {
                 *visibility = Visibility::Hidden;
             } else {

@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
+use bevy::text::TextBounds;
 use std::collections::HashSet;
 
 use crate::camera::components::CameraState;
@@ -15,16 +17,11 @@ pub struct ActiveLabels {
 const LABEL_ZOOM_THRESHOLD: f32 = 2.0;
 /// Max labels to spawn per frame to avoid spikes.
 const MAX_LABEL_SPAWNS_PER_FRAME: usize = 50;
-/// Label text scales with node radius; tuned so default `radius == 1` reads smaller than a fixed 14pt.
-const FONT_PER_RADIUS: f32 = 6.0;
-const FONT_MIN: f32 = 4.0;
-const FONT_MAX: f32 = 22.0;
-/// Vertical gap above the node center, as a fraction of font size.
-const LABEL_OFFSET_EM: f32 = 0.4;
+const FONT_SIZE: f32 = 12.0;
 /// Match camera zoom clamp ([`camera_input`](crate::camera::systems::camera_input)).
 const ORTHO_SCALE_MIN: f32 = 0.01;
 const ORTHO_SCALE_MAX: f32 = 100.0;
-/// Glyph rasterization size limits (avoids tiny atlases when zoomed out / huge when zoomed in).
+/// Glyph rasterization size limits.
 const RASTER_FONT_MIN: f32 = 4.0;
 const RASTER_FONT_MAX: f32 = 256.0;
 
@@ -36,9 +33,6 @@ fn ortho_scale(projection: &Projection) -> f32 {
 }
 
 /// Keeps glyph raster resolution in sync with orthographic zoom so labels stay sharp when magnified.
-///
-/// `TextFont::font_size` is the rasterization size; `Transform::scale` is chosen so
-/// `font_size * scale ≈ base_font_size` in world units.
 pub fn sync_label_zoom(
     camera_q: Query<&Projection, With<CameraState>>,
     mut q: Query<(&NodeLabelZoom, &mut TextFont, &mut Transform), With<NodeLabel>>,
@@ -51,7 +45,7 @@ pub fn sync_label_zoom(
         let target_raster = (zoom.base_font_size / ortho).clamp(RASTER_FONT_MIN, RASTER_FONT_MAX);
         let display_scale = zoom.base_font_size / target_raster;
         font.font_size = target_raster;
-        tf.translation = Vec3::new(0.0, zoom.base_y, 2.0);
+        tf.translation = Vec3::new(0.0, 0.0, 2.0);
         tf.scale = Vec3::splat(display_scale);
     }
 }
@@ -88,10 +82,8 @@ pub fn manage_labels(
             }
 
             if let Some(node_data) = graph.nodes.get(&graph_node.id) {
-                if !node_data.label.is_empty() {
-                    let base_font_size =
-                        (node_data.radius * FONT_PER_RADIUS).clamp(FONT_MIN, FONT_MAX);
-                    let label_y = node_data.radius + base_font_size * LABEL_OFFSET_EM;
+                if !node_data.data.is_empty() {
+                    let base_font_size = FONT_SIZE;
                     let ortho = scale.clamp(ORTHO_SCALE_MIN, ORTHO_SCALE_MAX);
                     let target_raster =
                         (base_font_size / ortho).clamp(RASTER_FONT_MIN, RASTER_FONT_MAX);
@@ -101,15 +93,18 @@ pub fn manage_labels(
                             NodeLabel,
                             NodeLabelZoom {
                                 base_font_size,
-                                base_y: label_y,
+                                base_y: 0.0,
                             },
-                            Text2d::new(&node_data.label),
+                            Text2d::new(&node_data.data),
+                            TextBounds::from(node_data.size),
                             TextFont {
                                 font_size: target_raster,
                                 ..default()
                             },
                             TextColor(Color::WHITE),
-                            Transform::from_translation(Vec3::new(0.0, label_y, 2.0))
+                            TextLayout::new_with_justify(Justify::Center),
+                            Anchor::CENTER,
+                            Transform::from_translation(Vec3::new(0.0, 0.0, 2.0))
                                 .with_scale(Vec3::splat(display_scale)),
                         ))
                         .id();

@@ -81,10 +81,9 @@ fn api_command_system(
         match cmd {
             ApiCommand::CreateNode {
                 uuid,
-                name,
+                data,
                 color,
                 edges,
-                radius,
                 position,
             } => {
                 let node_id = graph.next_node_id();
@@ -95,15 +94,10 @@ fn api_command_system(
                     None => Color::hsl(rng.random_range(0.0..360.0), 0.7, 0.6),
                 };
 
-                let node_radius = radius
-                    .map(|r| r as f32)
-                    .unwrap_or(1f32);
-
                 node_events.write(AddNodeEvent {
                     position,
-                    label: name,
+                    data,
                     color: bevy_color,
-                    radius: node_radius,
                     pre_allocated_id: Some(node_id),
                 });
 
@@ -158,16 +152,13 @@ fn api_sync_system(
             }
         }
 
-        let radius_u32 = node_data.radius.round().max(1.0) as u32;
-
         state.nodes.insert(
             *uuid,
             ApiNode {
                 id: *uuid,
-                name: node_data.label.clone(),
+                data: node_data.data.clone(),
                 color: color_to_hex(&node_data.color),
                 edges: neighbor_uuids,
-                radius: radius_u32,
                 position: ApiPosition {
                     x: node_data.position.x,
                     y: node_data.position.y,

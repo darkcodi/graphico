@@ -15,19 +15,17 @@ pub struct ApiPosition {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ApiNode {
     pub id: Uuid,
-    pub name: String,
+    pub data: String,
     pub color: String,
     pub edges: Vec<Uuid>,
-    pub radius: u32,
     pub position: ApiPosition,
 }
 
 #[derive(Deserialize)]
 pub struct CreateNodeRequest {
-    pub name: String,
+    pub data: String,
     pub color: Option<String>,
     pub edges: Option<Vec<Uuid>>,
-    pub radius: Option<u32>,
     pub position: ApiPosition,
 }
 
@@ -39,10 +37,9 @@ pub struct CreateNodeResponse {
 pub enum ApiCommand {
     CreateNode {
         uuid: Uuid,
-        name: String,
+        data: String,
         color: Option<[f32; 3]>,
         edges: Vec<Uuid>,
-        radius: Option<u32>,
         position: Vec2,
     },
     DeleteNode {

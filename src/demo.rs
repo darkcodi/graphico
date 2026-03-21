@@ -89,15 +89,13 @@ fn demo_loop() {
                 vec![created_ids[parent[i]].as_str()]
             };
 
-            let name = format!("N{}", i + 1);
-            let radius = rng.random_range(1..=4);
+            let data = format!("N{}\nDepth: {}", i + 1, depth[i]);
             let pos = positions[i];
 
             let body = serde_json::json!({
-                "name": name,
+                "data": data,
                 "color": color,
                 "edges": edges,
-                "radius": radius,
                 "position": { "x": pos.x, "y": pos.y },
             });
 

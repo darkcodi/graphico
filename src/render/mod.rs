@@ -13,7 +13,7 @@ pub struct RenderPlugin;
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ActiveLabels>()
-            .add_systems(Startup, nodes::create_circle_texture)
+            .add_systems(Startup, nodes::create_rect_texture)
             .add_systems(
                 Update,
                 (

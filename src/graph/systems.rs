@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use super::components::{ChunkCoord, GraphNode};
 use super::events::{AddEdgeEvent, AddNodeEvent, DeleteNodeEvent};
 use super::model::{EdgeData, GraphData, NodeData, NodeId};
-use crate::render::nodes::NodeCircleTexture;
+use crate::render::nodes::{NodeRectTexture, estimate_text_size};
 use crate::spatial::grid::{SpatialGrid, CHUNK_SIZE};
 
 pub fn process_add_node_events(
@@ -11,13 +11,14 @@ pub fn process_add_node_events(
     mut events: MessageReader<AddNodeEvent>,
     mut graph: ResMut<GraphData>,
     mut grid: ResMut<SpatialGrid>,
-    circle_tex: Res<NodeCircleTexture>,
+    rect_tex: Res<NodeRectTexture>,
 ) {
     for event in events.read() {
         let id = event
             .pre_allocated_id
             .unwrap_or_else(|| graph.next_node_id());
         let position = event.position;
+        let size = estimate_text_size(&event.data);
 
         let chunk_x = (position.x / CHUNK_SIZE).floor() as i32;
         let chunk_y = (position.y / CHUNK_SIZE).floor() as i32;
@@ -30,9 +31,9 @@ pub fn process_add_node_events(
                     y: chunk_y,
                 },
                 Sprite {
-                    image: circle_tex.0.clone(),
+                    image: rect_tex.0.clone(),
                     color: event.color,
-                    custom_size: Some(Vec2::splat(event.radius * 2.0)),
+                    custom_size: Some(size),
                     ..default()
                 },
                 Transform::from_translation(position.extend(1.0)),
@@ -43,9 +44,9 @@ pub fn process_add_node_events(
             id,
             NodeData {
                 position,
-                label: event.label.clone(),
+                data: event.data.clone(),
                 color: event.color,
-                radius: event.radius,
+                size,
                 entity: Some(entity),
             },
         );

@@ -9,9 +9,9 @@ pub struct EdgeId(pub u64);
 
 pub struct NodeData {
     pub position: Vec2,
-    pub label: String,
+    pub data: String,
     pub color: Color,
-    pub radius: f32,
+    pub size: Vec2,
     pub entity: Option<Entity>,
 }
 
