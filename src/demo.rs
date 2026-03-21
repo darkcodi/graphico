@@ -9,6 +9,9 @@ const NODES_PER_TICK: usize = 10;
 const MAX_NODES: usize = 1000;
 const TICK_INTERVAL: Duration = Duration::from_millis(50);
 
+const RECOLOR_BURST: usize = 10;
+const RECOLOR_BURST_INTERVAL: Duration = Duration::from_millis(100);
+
 /// Horizontal gap between adjacent node rectangles.
 const H_GAP: f32 = 16.0;
 /// Vertical gap between depth levels.
@@ -140,6 +143,62 @@ fn demo_loop() {
     }
 
     info!("demo: finished generating {MAX_NODES} nodes");
+
+    info!(
+        "demo: recoloring nodes in bursts of {RECOLOR_BURST} every {:?}",
+        RECOLOR_BURST_INTERVAL
+    );
+
+    let mut start = 0usize;
+    while start < MAX_NODES {
+        let end = (start + RECOLOR_BURST).min(MAX_NODES);
+        for i in start..end {
+            let hue: f32 = rng.random_range(0.0..360.0);
+            let color = hsl_to_hex(hue, 0.7, 0.6);
+
+            let edges: Vec<&str> = if i == 0 {
+                vec![]
+            } else {
+                vec![created_ids[parent[i]].as_str()]
+            };
+
+            let name = &name_strings[i];
+            let data = &data_strings[i];
+            let pos = positions[i];
+            let id = &created_ids[i];
+
+            let body = serde_json::json!({
+                "name": name,
+                "data": data,
+                "color": color,
+                "edges": edges,
+                "position": { "x": pos.x, "y": pos.y },
+            });
+
+            match agent
+                .put(format!("{API_BASE}/node/{id}"))
+                .send_json(&body)
+            {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if !status.is_success() {
+                        warn!("demo: PUT /node/{{id}} failed: {status}");
+                    }
+                }
+                Err(e) => {
+                    warn!("demo: PUT /node/{{id}} failed: {e}");
+                    std::thread::sleep(Duration::from_secs(2));
+                }
+            }
+        }
+
+        start = end;
+        if start < MAX_NODES {
+            std::thread::sleep(RECOLOR_BURST_INTERVAL);
+        }
+    }
+
+    info!("demo: finished recolor pass");
 }
 
 fn hsl_to_hex(h: f32, s: f32, l: f32) -> String {
