@@ -49,11 +49,6 @@ impl SpatialGrid {
         cell.dirty = true;
     }
 
-    pub fn move_node(&mut self, id: NodeId, old_chunk: IVec2, new_chunk: IVec2) {
-        self.remove_node(id, old_chunk);
-        self.insert_node(id, new_chunk);
-    }
-
     pub fn remove_node(&mut self, id: NodeId, chunk: IVec2) {
         if let Some(cell) = self.cells.get_mut(&chunk) {
             cell.node_ids.retain(|n| *n != id);
