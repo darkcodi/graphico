@@ -68,6 +68,7 @@ pub enum ApiCommand {
     DeleteNode {
         uuid: Uuid,
     },
+    DeleteAllNodes,
 }
 
 #[derive(Default)]

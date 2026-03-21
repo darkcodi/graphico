@@ -1,4 +1,4 @@
-//! MCP server that proxies Graphico's REST API (`/nodes`, `/nodes/{id}`) over stdio.
+//! MCP server that proxies Graphico's REST API (`/nodes`, `DELETE /nodes`, `/nodes/{id}`) over stdio.
 //! Set `GRAPHICO_API_URL` to override the default `http://127.0.0.1:3000`.
 
 use anyhow::{Context, Result};
@@ -154,6 +154,20 @@ impl GraphicoMcp {
     ) -> Result<CallToolResult, McpError> {
         let id = parse_uuid(&args.id)?;
         let url = format!("{}/nodes/{}", self.base.trim_end_matches('/'), id);
+        let resp = self
+            .client
+            .delete(&url)
+            .send()
+            .await
+            .map_err(|e| http_client_error(e))?;
+        tool_result_from_response(resp).await
+    }
+
+    #[tool(
+        description = "Delete all nodes. Proxies DELETE /nodes. Returns 204 on success (including when the graph is already empty)."
+    )]
+    async fn graphico_delete_all_nodes(&self) -> Result<CallToolResult, McpError> {
+        let url = format!("{}/nodes", self.base.trim_end_matches('/'));
         let resp = self
             .client
             .delete(&url)

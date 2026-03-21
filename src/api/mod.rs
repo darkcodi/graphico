@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::graph::events::{AddEdgeEvent, AddNodeEvent, DeleteNodeEvent, UpdateNodeEvent};
-use crate::graph::model::GraphData;
+use crate::graph::model::{GraphData, NodeId};
 use crate::persist::{
     inject_load_creates, inject_load_edges, persist_snapshot_system, GraphPersistenceDirty,
 };
@@ -46,7 +46,9 @@ impl Plugin for ApiPlugin {
                 let router = Router::new()
                     .route(
                         "/nodes",
-                        get(handlers::get_all_nodes).post(handlers::create_node),
+                        get(handlers::get_all_nodes)
+                            .post(handlers::create_node)
+                            .delete(handlers::delete_all_nodes),
                     )
                     .route(
                         "/nodes/{id}",
@@ -185,6 +187,17 @@ fn api_command_system(
             }
             ApiCommand::DeleteNode { uuid } => {
                 if let Some(node_id) = registry.uuid_to_node.get(&uuid).copied() {
+                    delete_events.write(DeleteNodeEvent { id: node_id });
+                    registry.remove_by_uuid(&uuid);
+                }
+            }
+            ApiCommand::DeleteAllNodes => {
+                let pairs: Vec<(uuid::Uuid, NodeId)> = registry
+                    .uuid_to_node
+                    .iter()
+                    .map(|(u, &n)| (*u, n))
+                    .collect();
+                for (uuid, node_id) in pairs {
                     delete_events.write(DeleteNodeEvent { id: node_id });
                     registry.remove_by_uuid(&uuid);
                 }

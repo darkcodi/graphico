@@ -139,3 +139,16 @@ pub async fn delete_node(
 
     StatusCode::NO_CONTENT.into_response()
 }
+
+pub async fn delete_all_nodes(State(state): State<AxumAppState>) -> impl IntoResponse {
+    let cmd = ApiCommand::DeleteAllNodes;
+    if state.cmd_tx.send(cmd).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": "server shutting down"})),
+        )
+            .into_response();
+    }
+
+    StatusCode::NO_CONTENT.into_response()
+}
