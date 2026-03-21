@@ -16,11 +16,22 @@ pub async fn create_node(
     let color = body.color.as_deref().and_then(parse_hex_color);
     let edges = body.edges.unwrap_or_default();
 
+    if let Some(r) = body.radius
+        && r == 0
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "radius must be a positive integer"})),
+        )
+            .into_response();
+    }
+
     let cmd = ApiCommand::CreateNode {
         uuid,
         name: body.name,
         color,
         edges,
+        radius: body.radius,
     };
 
     if state.cmd_tx.send(cmd).is_err() {

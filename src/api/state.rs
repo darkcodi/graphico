@@ -12,6 +12,7 @@ pub struct ApiNode {
     pub name: String,
     pub color: String,
     pub edges: Vec<Uuid>,
+    pub radius: u32,
 }
 
 #[derive(Deserialize)]
@@ -19,6 +20,7 @@ pub struct CreateNodeRequest {
     pub name: String,
     pub color: Option<String>,
     pub edges: Option<Vec<Uuid>>,
+    pub radius: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -32,6 +34,7 @@ pub enum ApiCommand {
         name: String,
         color: Option<[f32; 3]>,
         edges: Vec<Uuid>,
+        radius: Option<u32>,
     },
     DeleteNode {
         uuid: Uuid,
