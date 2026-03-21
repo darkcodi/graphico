@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
-use bevy::text::TextBounds;
+use bevy::text::{LineBreak, TextBounds};
 use std::collections::HashSet;
 
 use crate::camera::components::CameraState;
@@ -96,13 +96,16 @@ pub fn manage_labels(
                                 base_y: 0.0,
                             },
                             Text2d::new(&node_data.name),
-                            TextBounds::from(node_data.size),
+                            // Match node width for wrapping; do not fix height — a tall box makes cosmic-text
+                            // top-align lines, which looks vertically off-center and shifts when font_size
+                            // changes during zoom (`sync_label_zoom`).
+                            TextBounds::new_horizontal(node_data.size.x),
                             TextFont {
                                 font_size: target_raster,
                                 ..default()
                             },
                             TextColor(Color::WHITE),
-                            TextLayout::new_with_justify(Justify::Center),
+                            TextLayout::new(Justify::Center, LineBreak::WordBoundary),
                             Anchor::CENTER,
                             Transform::from_translation(Vec3::new(0.0, 0.0, 2.0))
                                 .with_scale(Vec3::splat(display_scale)),
