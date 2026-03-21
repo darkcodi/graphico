@@ -37,6 +37,16 @@ pub struct CreateNodeResponse {
     pub id: Uuid,
 }
 
+#[derive(Deserialize)]
+pub struct BulkCreateNodesRequest {
+    pub nodes: Vec<CreateNodeRequest>,
+}
+
+#[derive(Serialize)]
+pub struct BulkCreateNodesResponse {
+    pub ids: Vec<Uuid>,
+}
+
 /// Partial update: omit a field to leave it unchanged. `id` is taken from the URL path only.
 #[derive(Deserialize)]
 pub struct UpdateNodeRequest {

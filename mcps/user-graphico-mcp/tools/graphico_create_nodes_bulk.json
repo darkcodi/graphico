@@ -1,0 +1,71 @@
+{
+  "name": "graphico_create_nodes_bulk",
+  "description": "Create multiple nodes in one request. Returns JSON with `ids` in order. Proxies POST /nodes/bulk.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "nodes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "data": {
+              "default": "",
+              "type": "string"
+            },
+            "edges": {
+              "description": "Neighbor node UUIDs (strings accepted by the HTTP API).",
+              "items": {
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "name": {
+              "type": "string"
+            },
+            "position": {
+              "$ref": "#/$defs/ApiPosition"
+            }
+          },
+          "required": [
+            "name",
+            "position"
+          ]
+        }
+      }
+    },
+    "required": [
+      "nodes"
+    ],
+    "$defs": {
+      "ApiPosition": {
+        "properties": {
+          "x": {
+            "format": "float",
+            "type": "number"
+          },
+          "y": {
+            "format": "float",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "GraphicoCreateNodesBulkArgs"
+  }
+}

@@ -1,4 +1,4 @@
-//! MCP server that proxies Graphico's REST API (`/nodes`, `DELETE /nodes`, `/nodes/{id}`) over stdio.
+//! MCP server that proxies Graphico's REST API (`/nodes`, `POST /nodes/bulk`, `DELETE /nodes`, `/nodes/{id}`) over stdio.
 //! Set `GRAPHICO_API_URL` to override the default `http://127.0.0.1:3000`.
 
 use anyhow::{Context, Result};
@@ -38,6 +38,11 @@ struct GraphicoCreateNodeArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edges: Option<Vec<String>>,
     pub position: ApiPosition,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+struct GraphicoCreateNodesBulkArgs {
+    pub nodes: Vec<GraphicoCreateNodeArgs>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -89,6 +94,36 @@ impl GraphicoMcp {
             "edges": edges,
             "position": { "x": args.position.x, "y": args.position.y },
         });
+        let resp = self
+            .client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| http_client_error(e))?;
+        tool_result_from_response(resp).await
+    }
+
+    #[tool(
+        description = "Create multiple nodes in one request. Returns JSON with `ids` in order. Proxies POST /nodes/bulk."
+    )]
+    async fn graphico_create_nodes_bulk(
+        &self,
+        Parameters(args): Parameters<GraphicoCreateNodesBulkArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let mut nodes = Vec::with_capacity(args.nodes.len());
+        for node in &args.nodes {
+            let edges = parse_uuid_list_opt(node.edges.as_ref())?;
+            nodes.push(serde_json::json!({
+                "name": node.name,
+                "data": node.data,
+                "color": node.color,
+                "edges": edges,
+                "position": { "x": node.position.x, "y": node.position.y },
+            }));
+        }
+        let body = serde_json::json!({ "nodes": nodes });
+        let url = format!("{}/nodes/bulk", self.base.trim_end_matches('/'));
         let resp = self
             .client
             .post(&url)

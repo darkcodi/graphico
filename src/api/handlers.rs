@@ -6,8 +6,8 @@ use bevy::prelude::{Color, Vec2};
 use uuid::Uuid;
 
 use super::state::{
-    ApiCommand, ApiPosition, AxumAppState, CreateNodeRequest, CreateNodeResponse, UpdateNodeRequest,
-    color_to_hex, parse_hex_color,
+    ApiCommand, ApiPosition, AxumAppState, BulkCreateNodesRequest, BulkCreateNodesResponse,
+    CreateNodeRequest, CreateNodeResponse, UpdateNodeRequest, color_to_hex, parse_hex_color,
 };
 
 pub async fn create_node(
@@ -33,6 +33,44 @@ pub async fn create_node(
     }
 
     (StatusCode::CREATED, Json(CreateNodeResponse { id: uuid })).into_response()
+}
+
+pub async fn create_nodes_bulk(
+    State(state): State<AxumAppState>,
+    Json(body): Json<BulkCreateNodesRequest>,
+) -> impl IntoResponse {
+    let mut ids = Vec::with_capacity(body.nodes.len());
+    for item in body.nodes {
+        let uuid = Uuid::new_v4();
+        let color = item.color.as_deref().and_then(parse_hex_color);
+        let edges = item.edges.unwrap_or_default();
+        let position = Vec2::new(item.position.x, item.position.y);
+
+        let cmd = ApiCommand::CreateNode {
+            uuid,
+            name: item.name,
+            data: item.data,
+            color,
+            edges,
+            position,
+        };
+
+        if state.cmd_tx.send(cmd).is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "server shutting down"})),
+            )
+                .into_response();
+        }
+
+        ids.push(uuid);
+    }
+
+    (
+        StatusCode::CREATED,
+        Json(BulkCreateNodesResponse { ids }),
+    )
+        .into_response()
 }
 
 pub async fn get_node(

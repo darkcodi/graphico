@@ -4,7 +4,7 @@ pub mod state;
 
 use std::sync::{mpsc, Arc, Mutex, RwLock};
 
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
 use bevy::prelude::*;
 use rand::Rng;
@@ -50,6 +50,7 @@ impl Plugin for ApiPlugin {
                             .post(handlers::create_node)
                             .delete(handlers::delete_all_nodes),
                     )
+                    .route("/nodes/bulk", post(handlers::create_nodes_bulk))
                     .route(
                         "/nodes/{id}",
                         get(handlers::get_node)
