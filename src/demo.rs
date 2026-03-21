@@ -4,8 +4,15 @@ use std::time::Duration;
 
 const API_BASE: &str = "http://127.0.0.1:3000";
 const NODES_PER_TICK: usize = 10;
-const MAX_NODES: usize = 100_000;
+const MAX_NODES: usize = 1000;
 const TICK_INTERVAL: Duration = Duration::from_millis(50);
+
+/// Vertical gap between depth levels (world units).
+const V_SPACING: f32 = 120.0;
+/// Preferred horizontal gap when the level is not crowded.
+const H_SPACING_MAX: f32 = 72.0;
+/// Cap total width per level so a star-shaped tree does not span absurdly far.
+const LEVEL_WIDTH_BUDGET: f32 = 2800.0;
 
 pub struct DemoPlugin;
 
@@ -15,39 +22,83 @@ impl Plugin for DemoPlugin {
     }
 }
 
+/// Uniform random recursive tree: `parent[i]` in `0..i` for `i >= 1`.
+fn random_tree_parents(rng: &mut impl Rng, n: usize) -> Vec<usize> {
+    let mut parent = vec![0usize; n];
+    for i in 1..n {
+        parent[i] = rng.random_range(0..i);
+    }
+    parent
+}
+
+fn depths_from_parents(parent: &[usize]) -> Vec<usize> {
+    let n = parent.len();
+    let mut depth = vec![0usize; n];
+    for i in 1..n {
+        depth[i] = depth[parent[i]] + 1;
+    }
+    depth
+}
+
+/// Layered layout: nodes at depth `d` share `y`, spread `x` by index within the level.
+fn layered_positions(depth: &[usize]) -> Vec<Vec2> {
+    let n = depth.len();
+    let max_depth = depth.iter().copied().max().unwrap_or(0);
+    let mut levels: Vec<Vec<usize>> = vec![Vec::new(); max_depth + 1];
+    for i in 0..n {
+        levels[depth[i]].push(i);
+    }
+
+    let mut positions = vec![Vec2::ZERO; n];
+    for (d, level_nodes) in levels.iter().enumerate() {
+        let count = level_nodes.len();
+        let h = (LEVEL_WIDTH_BUDGET / count.max(1) as f32).min(H_SPACING_MAX);
+        for (j, &node_idx) in level_nodes.iter().enumerate() {
+            let x = (j as f32 - (count as f32 - 1.0) / 2.0) * h;
+            let y = -(d as f32) * V_SPACING;
+            positions[node_idx] = Vec2::new(x, y);
+        }
+    }
+    positions
+}
+
 fn demo_loop() {
     std::thread::sleep(Duration::from_secs(1));
 
     let agent = ureq::Agent::new_with_defaults();
     let mut created_ids: Vec<String> = Vec::new();
     let mut rng = rand::rng();
-    let mut total = 0usize;
 
-    while total < MAX_NODES {
+    let parent = random_tree_parents(&mut rng, MAX_NODES);
+    let depth = depths_from_parents(&parent);
+    let positions = layered_positions(&depth);
+
+    let mut i = 0usize;
+    while i < MAX_NODES {
         for _ in 0..NODES_PER_TICK {
+            if i >= MAX_NODES {
+                break;
+            }
+
             let hue: f32 = rng.random_range(0.0..360.0);
             let color = hsl_to_hex(hue, 0.7, 0.6);
 
-            let edges: Vec<&str> = if created_ids.len() >= 2 && rng.random_bool(0.5) {
-                let idx = rng.random_range(0..created_ids.len());
-                vec![created_ids[idx].as_str()]
-            } else {
+            let edges: Vec<&str> = if i == 0 {
                 vec![]
+            } else {
+                vec![created_ids[parent[i]].as_str()]
             };
 
-            total += 1;
-            let name = format!("N{}", total);
+            let name = format!("N{}", i + 1);
             let radius = rng.random_range(1..=4);
-            let spread = (total as f32).sqrt() * 50.0 + 500.0;
-            let x = rng.random_range(-spread..spread);
-            let y = rng.random_range(-spread..spread);
+            let pos = positions[i];
 
             let body = serde_json::json!({
                 "name": name,
                 "color": color,
                 "edges": edges,
                 "radius": radius,
-                "position": { "x": x, "y": y },
+                "position": { "x": pos.x, "y": pos.y },
             });
 
             match agent.post(format!("{API_BASE}/node")).send_json(&body) {
@@ -63,6 +114,8 @@ fn demo_loop() {
                     std::thread::sleep(Duration::from_secs(2));
                 }
             }
+
+            i += 1;
         }
 
         std::thread::sleep(TICK_INTERVAL);
