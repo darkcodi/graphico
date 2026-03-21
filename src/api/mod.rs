@@ -13,8 +13,8 @@ use crate::graph::model::GraphData;
 use crate::GraphSystems;
 
 use state::{
-    ApiCommand, ApiCommandReceiver, ApiNode, AxumAppState, NodeUuidRegistry, SharedGraphState,
-    SharedStateHandle, color_to_hex,
+    ApiCommand, ApiCommandReceiver, ApiNode, ApiPosition, AxumAppState, NodeUuidRegistry,
+    SharedGraphState, SharedStateHandle, color_to_hex,
 };
 
 pub struct ApiPlugin;
@@ -85,12 +85,15 @@ fn api_command_system(
                 color,
                 edges,
                 radius,
+                position: position_override,
             } => {
                 let node_id = graph.next_node_id();
                 registry.register(uuid, node_id);
 
                 let existing_ids: Vec<_> = graph.nodes.keys().copied().collect();
-                let position = if !existing_ids.is_empty() && rng.random_bool(0.7) {
+                let position = if let Some(v) = position_override {
+                    v
+                } else if !existing_ids.is_empty() && rng.random_bool(0.7) {
                     let neighbor_id = existing_ids[rng.random_range(0..existing_ids.len())];
                     let neighbor_pos = graph.nodes[&neighbor_id].position;
                     neighbor_pos
@@ -184,6 +187,10 @@ fn api_sync_system(
                 color: color_to_hex(&node_data.color),
                 edges: neighbor_uuids,
                 radius: radius_u32,
+                position: ApiPosition {
+                    x: node_data.position.x,
+                    y: node_data.position.y,
+                },
             },
         );
     }

@@ -2,6 +2,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
+use bevy::prelude::Vec2;
 use uuid::Uuid;
 
 use super::state::{
@@ -26,12 +27,17 @@ pub async fn create_node(
             .into_response();
     }
 
+    let position = body
+        .position
+        .map(|p| Vec2::new(p.x, p.y));
+
     let cmd = ApiCommand::CreateNode {
         uuid,
         name: body.name,
         color,
         edges,
         radius: body.radius,
+        position,
     };
 
     if state.cmd_tx.send(cmd).is_err() {
