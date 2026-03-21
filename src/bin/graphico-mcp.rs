@@ -42,16 +42,19 @@ struct GraphicoCreateNodeArgs {
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 struct GraphicoUpdateNodeArgs {
-    /// Node UUID to update.
+    /// Node UUID to update (path parameter; required).
     pub id: String,
-    pub name: String,
-    #[serde(default)]
-    pub data: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    /// Neighbor UUIDs; omit to keep current edges.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edges: Option<Vec<String>>,
-    pub position: ApiPosition,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<ApiPosition>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -124,21 +127,16 @@ impl GraphicoMcp {
         tool_result_from_response(resp).await
     }
 
-    #[tool(description = "Update an existing node. Proxies PUT /node/{id}. Returns 204 on success.")]
+    #[tool(
+        description = "Partially update a node. Proxies PUT /node/{id}. Only `id` is required; omit other fields to leave them unchanged. Returns 204 on success."
+    )]
     async fn graphico_update_node(
         &self,
         Parameters(args): Parameters<GraphicoUpdateNodeArgs>,
     ) -> Result<CallToolResult, McpError> {
         let id = parse_uuid(&args.id)?;
-        let edges = parse_uuid_list_opt(args.edges.as_ref())?;
         let url = format!("{}/node/{}", self.base.trim_end_matches('/'), id);
-        let body = serde_json::json!({
-            "name": args.name,
-            "data": args.data,
-            "color": args.color,
-            "edges": edges,
-            "position": { "x": args.position.x, "y": args.position.y },
-        });
+        let body = build_partial_update_body(&args)?;
         let resp = self
             .client
             .put(&url)
@@ -202,6 +200,34 @@ fn parse_uuid_list_opt(edges: Option<&Vec<String>>) -> Result<Option<Vec<Uuid>>,
         out.push(parse_uuid(s)?);
     }
     Ok(Some(out))
+}
+
+/// JSON body for PUT: only keys that should change (partial update).
+fn build_partial_update_body(args: &GraphicoUpdateNodeArgs) -> Result<serde_json::Value, McpError> {
+    let mut map = serde_json::Map::new();
+    if let Some(ref n) = args.name {
+        map.insert("name".into(), serde_json::json!(n));
+    }
+    if let Some(ref d) = args.data {
+        map.insert("data".into(), serde_json::json!(d));
+    }
+    if let Some(ref c) = args.color {
+        map.insert("color".into(), serde_json::json!(c));
+    }
+    if let Some(ref e) = args.edges {
+        let uuids = parse_uuid_list_opt(Some(e))?.unwrap_or_default();
+        map.insert(
+            "edges".into(),
+            serde_json::to_value(uuids).map_err(|e| McpError::internal_error(e.to_string(), None))?,
+        );
+    }
+    if let Some(ref p) = args.position {
+        map.insert(
+            "position".into(),
+            serde_json::json!({ "x": p.x, "y": p.y }),
+        );
+    }
+    Ok(serde_json::Value::Object(map))
 }
 
 async fn tool_result_from_response(resp: reqwest::Response) -> Result<CallToolResult, McpError> {

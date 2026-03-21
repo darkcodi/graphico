@@ -37,15 +37,14 @@ pub struct CreateNodeResponse {
     pub id: Uuid,
 }
 
-/// Same JSON shape as [`CreateNodeRequest`]. For `color`, `None` means keep the current color.
+/// Partial update: omit a field to leave it unchanged. `id` is taken from the URL path only.
 #[derive(Deserialize)]
 pub struct UpdateNodeRequest {
-    pub name: String,
-    #[serde(default)]
-    pub data: String,
+    pub name: Option<String>,
+    pub data: Option<String>,
     pub color: Option<String>,
     pub edges: Option<Vec<Uuid>>,
-    pub position: ApiPosition,
+    pub position: Option<ApiPosition>,
 }
 
 pub enum ApiCommand {

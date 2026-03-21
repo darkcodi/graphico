@@ -57,28 +57,35 @@ pub async fn update_node(
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateNodeRequest>,
 ) -> impl IntoResponse {
-    let color_rgb = {
+    let existing = {
         let shared = state.shared.read().unwrap();
-        if !shared.nodes.contains_key(&id) {
-            return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "node not found"})))
-                .into_response();
-        }
-        match body.color.as_ref() {
-            None => None,
-            Some(s) => match parse_hex_color(s) {
-                Some(rgb) => Some(rgb),
-                None => shared.nodes.get(&id).and_then(|n| parse_hex_color(&n.color)),
-            },
-        }
+        shared.nodes.get(&id).cloned()
+    };
+    let Some(existing) = existing else {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "node not found"})))
+            .into_response();
     };
 
-    let edges = body.edges.unwrap_or_default();
-    let position = Vec2::new(body.position.x, body.position.y);
+    let color_rgb = match body.color.as_ref() {
+        None => None,
+        Some(s) => match parse_hex_color(s) {
+            Some(rgb) => Some(rgb),
+            None => parse_hex_color(&existing.color),
+        },
+    };
+
+    let name = body.name.unwrap_or(existing.name);
+    let data = body.data.unwrap_or(existing.data);
+    let position = body
+        .position
+        .map(|p| Vec2::new(p.x, p.y))
+        .unwrap_or_else(|| Vec2::new(existing.position.x, existing.position.y));
+    let edges = body.edges.unwrap_or(existing.edges);
 
     let cmd = ApiCommand::UpdateNode {
         uuid: id,
-        name: body.name,
-        data: body.data,
+        name,
+        data,
         color: color_rgb,
         edges,
         position,
