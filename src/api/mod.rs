@@ -85,29 +85,10 @@ fn api_command_system(
                 color,
                 edges,
                 radius,
-                position: position_override,
+                position,
             } => {
                 let node_id = graph.next_node_id();
                 registry.register(uuid, node_id);
-
-                let existing_ids: Vec<_> = graph.nodes.keys().copied().collect();
-                let position = if let Some(v) = position_override {
-                    v
-                } else if !existing_ids.is_empty() && rng.random_bool(0.7) {
-                    let neighbor_id = existing_ids[rng.random_range(0..existing_ids.len())];
-                    let neighbor_pos = graph.nodes[&neighbor_id].position;
-                    neighbor_pos
-                        + Vec2::new(
-                            rng.random_range(-200.0..200.0),
-                            rng.random_range(-200.0..200.0),
-                        )
-                } else {
-                    let spread = (graph.node_count() as f32).sqrt() * 50.0 + 500.0;
-                    Vec2::new(
-                        rng.random_range(-spread..spread),
-                        rng.random_range(-spread..spread),
-                    )
-                };
 
                 let bevy_color = match color {
                     Some([r, g, b]) => Color::srgb(r, g, b),

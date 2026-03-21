@@ -27,9 +27,7 @@ pub async fn create_node(
             .into_response();
     }
 
-    let position = body
-        .position
-        .map(|p| Vec2::new(p.x, p.y));
+    let position = Vec2::new(body.position.x, body.position.y);
 
     let cmd = ApiCommand::CreateNode {
         uuid,
