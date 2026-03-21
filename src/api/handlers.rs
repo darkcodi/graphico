@@ -2,12 +2,12 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
-use bevy::prelude::Vec2;
+use bevy::prelude::{Color, Vec2};
 use uuid::Uuid;
 
 use super::state::{
-    ApiCommand, AxumAppState, CreateNodeRequest, CreateNodeResponse, UpdateNodeRequest,
-    parse_hex_color,
+    ApiCommand, ApiPosition, AxumAppState, CreateNodeRequest, CreateNodeResponse, UpdateNodeRequest,
+    color_to_hex, parse_hex_color,
 };
 
 pub async fn create_node(
@@ -74,20 +74,25 @@ pub async fn update_node(
         },
     };
 
-    let name = body.name.unwrap_or(existing.name);
-    let data = body.data.unwrap_or(existing.data);
+    let name = body.name.unwrap_or_else(|| existing.name.clone());
+    let data = body.data.unwrap_or_else(|| existing.data.clone());
     let position = body
         .position
         .map(|p| Vec2::new(p.x, p.y))
         .unwrap_or_else(|| Vec2::new(existing.position.x, existing.position.y));
-    let edges = body.edges.unwrap_or(existing.edges);
+    let edges = body.edges.unwrap_or_else(|| existing.edges.clone());
+
+    let color_hex = match color_rgb {
+        None => existing.color.clone(),
+        Some(rgb) => color_to_hex(&Color::srgb(rgb[0], rgb[1], rgb[2])),
+    };
 
     let cmd = ApiCommand::UpdateNode {
         uuid: id,
-        name,
-        data,
+        name: name.clone(),
+        data: data.clone(),
         color: color_rgb,
-        edges,
+        edges: edges.clone(),
         position,
     };
 
@@ -97,6 +102,20 @@ pub async fn update_node(
             Json(serde_json::json!({"error": "server shutting down"})),
         )
             .into_response();
+    }
+
+    {
+        let mut shared = state.shared.write().unwrap();
+        if let Some(node) = shared.nodes.get_mut(&id) {
+            node.name = name;
+            node.data = data;
+            node.color = color_hex;
+            node.edges = edges;
+            node.position = ApiPosition {
+                x: position.x,
+                y: position.y,
+            };
+        }
     }
 
     StatusCode::NO_CONTENT.into_response()

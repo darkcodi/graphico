@@ -50,6 +50,31 @@ pub fn sync_label_zoom(
     }
 }
 
+/// Keeps spawned label text and wrap width in sync when [`NodeData`](crate::graph::model::NodeData) changes
+/// (e.g. API rename) without despawning the label entity.
+pub fn sync_label_content(
+    mut label_q: Query<(&ChildOf, &mut Text2d, &mut TextBounds), With<NodeLabel>>,
+    graph: Res<GraphData>,
+    node_q: Query<&GraphNode>,
+) {
+    for (child_of, mut text2d, mut bounds) in label_q.iter_mut() {
+        let parent = child_of.parent();
+        let Ok(graph_node) = node_q.get(parent) else {
+            continue;
+        };
+        let Some(node_data) = graph.nodes.get(&graph_node.id) else {
+            continue;
+        };
+        if text2d.0 != node_data.name {
+            *text2d = Text2d::new(&node_data.name);
+        }
+        let desired = TextBounds::new_horizontal(node_data.size.x);
+        if bounds.width != desired.width || bounds.height != desired.height {
+            *bounds = desired;
+        }
+    }
+}
+
 pub fn manage_labels(
     mut commands: Commands,
     camera_q: Query<&Projection, With<CameraState>>,
