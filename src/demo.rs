@@ -37,11 +37,13 @@ fn demo_loop() {
 
             total += 1;
             let name = format!("N{}", total);
+            let radius = rng.random_range(1..=4);
 
             let body = serde_json::json!({
                 "name": name,
                 "color": color,
                 "edges": edges,
+                "radius": radius,
             });
 
             match agent.post(format!("{API_BASE}/node")).send_json(&body) {
