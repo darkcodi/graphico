@@ -2,17 +2,17 @@ use bevy::prelude::*;
 use rand::Rng;
 use std::time::Duration;
 
+use crate::render::nodes::estimate_text_size;
+
 const API_BASE: &str = "http://127.0.0.1:3000";
 const NODES_PER_TICK: usize = 10;
 const MAX_NODES: usize = 1000;
 const TICK_INTERVAL: Duration = Duration::from_millis(50);
 
-/// Vertical gap between depth levels (world units).
-const V_SPACING: f32 = 120.0;
-/// Preferred horizontal gap when the level is not crowded.
-const H_SPACING_MAX: f32 = 72.0;
-/// Cap total width per level so a star-shaped tree does not span absurdly far.
-const LEVEL_WIDTH_BUDGET: f32 = 2800.0;
+/// Horizontal gap between adjacent node rectangles.
+const H_GAP: f32 = 16.0;
+/// Vertical gap between depth levels.
+const V_GAP: f32 = 24.0;
 
 pub struct DemoPlugin;
 
@@ -40,8 +40,8 @@ fn depths_from_parents(parent: &[usize]) -> Vec<usize> {
     depth
 }
 
-/// Layered layout: nodes at depth `d` share `y`, spread `x` by index within the level.
-fn layered_positions(depth: &[usize]) -> Vec<Vec2> {
+/// Layered layout that sizes spacing from estimated node rectangles so they never overlap.
+fn layered_positions(depth: &[usize], data_strings: &[String]) -> Vec<Vec2> {
     let n = depth.len();
     let max_depth = depth.iter().copied().max().unwrap_or(0);
     let mut levels: Vec<Vec<usize>> = vec![Vec::new(); max_depth + 1];
@@ -49,14 +49,24 @@ fn layered_positions(depth: &[usize]) -> Vec<Vec2> {
         levels[depth[i]].push(i);
     }
 
+    let sizes: Vec<Vec2> = data_strings.iter()
+        .map(|d| estimate_text_size(d))
+        .collect();
+
+    let max_h = sizes.iter().map(|s| s.y).fold(0f32, f32::max);
+
     let mut positions = vec![Vec2::ZERO; n];
     for (d, level_nodes) in levels.iter().enumerate() {
-        let count = level_nodes.len();
-        let h = (LEVEL_WIDTH_BUDGET / count.max(1) as f32).min(H_SPACING_MAX);
-        for (j, &node_idx) in level_nodes.iter().enumerate() {
-            let x = (j as f32 - (count as f32 - 1.0) / 2.0) * h;
-            let y = -(d as f32) * V_SPACING;
-            positions[node_idx] = Vec2::new(x, y);
+        let y = -(d as f32) * (max_h + V_GAP);
+
+        let total_w: f32 = level_nodes.iter().map(|&idx| sizes[idx].x).sum::<f32>()
+            + (level_nodes.len().saturating_sub(1) as f32) * H_GAP;
+
+        let mut x = -total_w / 2.0;
+        for &node_idx in level_nodes {
+            let w = sizes[node_idx].x;
+            positions[node_idx] = Vec2::new(x + w / 2.0, y);
+            x += w + H_GAP;
         }
     }
     positions
@@ -71,7 +81,12 @@ fn demo_loop() {
 
     let parent = random_tree_parents(&mut rng, MAX_NODES);
     let depth = depths_from_parents(&parent);
-    let positions = layered_positions(&depth);
+
+    let data_strings: Vec<String> = (0..MAX_NODES)
+        .map(|i| format!("N{}\nDepth: {}", i + 1, depth[i]))
+        .collect();
+
+    let positions = layered_positions(&depth, &data_strings);
 
     let mut i = 0usize;
     while i < MAX_NODES {
@@ -89,7 +104,7 @@ fn demo_loop() {
                 vec![created_ids[parent[i]].as_str()]
             };
 
-            let data = format!("N{}\nDepth: {}", i + 1, depth[i]);
+            let data = &data_strings[i];
             let pos = positions[i];
 
             let body = serde_json::json!({
