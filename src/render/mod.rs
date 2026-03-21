@@ -17,7 +17,9 @@ impl Plugin for RenderPlugin {
             .add_systems(
                 Update,
                 (
-                    labels::manage_labels.in_set(GraphSystems::VisibilityUpdate),
+                    (labels::manage_labels, labels::sync_label_zoom)
+                        .chain()
+                        .in_set(GraphSystems::VisibilityUpdate),
                     lod::lod_visibility.in_set(GraphSystems::VisibilityUpdate),
                 ),
             );
