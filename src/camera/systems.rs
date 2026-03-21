@@ -68,7 +68,7 @@ pub fn camera_input(
     }
 }
 
-/// Middle-mouse drag panning using cursor delta.
+/// Right-mouse drag panning using cursor delta.
 pub fn camera_drag_pan(
     mut camera_q: Query<(&mut CameraState, &Projection)>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -84,7 +84,7 @@ pub fn camera_drag_pan(
 
     let scale = ortho_scale(projection);
 
-    if mouse.pressed(MouseButton::Middle) {
+    if mouse.pressed(MouseButton::Right) {
         if let Some(cursor_pos) = window.cursor_position() {
             if let Some(last) = *last_cursor {
                 let delta = cursor_pos - last;
