@@ -122,7 +122,7 @@ fn demo_loop() {
                 "position": { "x": pos.x, "y": pos.y },
             });
 
-            match agent.post(format!("{API_BASE}/node")).send_json(&body) {
+            match agent.post(format!("{API_BASE}/nodes")).send_json(&body) {
                 Ok(mut resp) => {
                     if let Ok(parsed) = resp.body_mut().read_json::<serde_json::Value>()
                         && let Some(id) = parsed.get("id").and_then(|v| v.as_str())
@@ -131,7 +131,7 @@ fn demo_loop() {
                     }
                 }
                 Err(e) => {
-                    warn!("demo: POST /node failed: {e}");
+                    warn!("demo: POST /nodes failed: {e}");
                     std::thread::sleep(Duration::from_secs(2));
                 }
             }
@@ -176,17 +176,17 @@ fn demo_loop() {
             });
 
             match agent
-                .put(format!("{API_BASE}/node/{id}"))
+                .put(format!("{API_BASE}/nodes/{id}"))
                 .send_json(&body)
             {
                 Ok(resp) => {
                     let status = resp.status();
                     if !status.is_success() {
-                        warn!("demo: PUT /node/{{id}} failed: {status}");
+                        warn!("demo: PUT /nodes/{{id}} failed: {status}");
                     }
                 }
                 Err(e) => {
-                    warn!("demo: PUT /node/{{id}} failed: {e}");
+                    warn!("demo: PUT /nodes/{{id}} failed: {e}");
                     std::thread::sleep(Duration::from_secs(2));
                 }
             }

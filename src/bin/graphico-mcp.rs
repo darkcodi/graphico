@@ -1,4 +1,4 @@
-//! MCP server that proxies Graphico's REST API (`/node`, `/nodes`) over stdio.
+//! MCP server that proxies Graphico's REST API (`/nodes`, `/nodes/{id}`) over stdio.
 //! Set `GRAPHICO_API_URL` to override the default `http://127.0.0.1:3000`.
 
 use anyhow::{Context, Result};
@@ -74,14 +74,14 @@ impl GraphicoMcp {
     }
 
     #[tool(
-        description = "Create a new node. Returns JSON with the new node's id. Proxies POST /node."
+        description = "Create a new node. Returns JSON with the new node's id. Proxies POST /nodes."
     )]
     async fn graphico_create_node(
         &self,
         Parameters(args): Parameters<GraphicoCreateNodeArgs>,
     ) -> Result<CallToolResult, McpError> {
         let edges = parse_uuid_list_opt(args.edges.as_ref())?;
-        let url = format!("{}/node", self.base.trim_end_matches('/'));
+        let url = format!("{}/nodes", self.base.trim_end_matches('/'));
         let body = serde_json::json!({
             "name": args.name,
             "data": args.data,
@@ -99,13 +99,13 @@ impl GraphicoMcp {
         tool_result_from_response(resp).await
     }
 
-    #[tool(description = "Fetch a single node by UUID. Proxies GET /node/{id}.")]
+    #[tool(description = "Fetch a single node by UUID. Proxies GET /nodes/{id}.")]
     async fn graphico_get_node(
         &self,
         Parameters(args): Parameters<GraphicoNodeIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let id = parse_uuid(&args.id)?;
-        let url = format!("{}/node/{}", self.base.trim_end_matches('/'), id);
+        let url = format!("{}/nodes/{}", self.base.trim_end_matches('/'), id);
         let resp = self
             .client
             .get(&url)
@@ -128,14 +128,14 @@ impl GraphicoMcp {
     }
 
     #[tool(
-        description = "Partially update a node. Proxies PUT /node/{id}. Only `id` is required; omit other fields to leave them unchanged. Returns 204 on success."
+        description = "Partially update a node. Proxies PUT /nodes/{id}. Only `id` is required; omit other fields to leave them unchanged. Returns 204 on success."
     )]
     async fn graphico_update_node(
         &self,
         Parameters(args): Parameters<GraphicoUpdateNodeArgs>,
     ) -> Result<CallToolResult, McpError> {
         let id = parse_uuid(&args.id)?;
-        let url = format!("{}/node/{}", self.base.trim_end_matches('/'), id);
+        let url = format!("{}/nodes/{}", self.base.trim_end_matches('/'), id);
         let body = build_partial_update_body(&args)?;
         let resp = self
             .client
@@ -147,13 +147,13 @@ impl GraphicoMcp {
         tool_result_from_response(resp).await
     }
 
-    #[tool(description = "Delete a node by UUID. Proxies DELETE /node/{id}. Returns 204 on success.")]
+    #[tool(description = "Delete a node by UUID. Proxies DELETE /nodes/{id}. Returns 204 on success.")]
     async fn graphico_delete_node(
         &self,
         Parameters(args): Parameters<GraphicoNodeIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let id = parse_uuid(&args.id)?;
-        let url = format!("{}/node/{}", self.base.trim_end_matches('/'), id);
+        let url = format!("{}/nodes/{}", self.base.trim_end_matches('/'), id);
         let resp = self
             .client
             .delete(&url)

@@ -4,7 +4,7 @@ pub mod state;
 
 use std::sync::{mpsc, Arc, Mutex, RwLock};
 
-use axum::routing::{delete, get, post, put};
+use axum::routing::get;
 use axum::Router;
 use bevy::prelude::*;
 use rand::Rng;
@@ -44,11 +44,16 @@ impl Plugin for ApiPlugin {
 
             rt.block_on(async {
                 let router = Router::new()
-                    .route("/node", post(handlers::create_node))
-                    .route("/node/{id}", get(handlers::get_node))
-                    .route("/node/{id}", put(handlers::update_node))
-                    .route("/node/{id}", delete(handlers::delete_node))
-                    .route("/nodes", get(handlers::get_all_nodes))
+                    .route(
+                        "/nodes",
+                        get(handlers::get_all_nodes).post(handlers::create_node),
+                    )
+                    .route(
+                        "/nodes/{id}",
+                        get(handlers::get_node)
+                            .put(handlers::update_node)
+                            .delete(handlers::delete_node),
+                    )
                     .with_state(axum_state);
 
                 let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
