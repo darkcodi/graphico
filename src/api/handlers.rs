@@ -6,7 +6,8 @@ use bevy::prelude::Vec2;
 use uuid::Uuid;
 
 use super::state::{
-    ApiCommand, AxumAppState, CreateNodeRequest, CreateNodeResponse, parse_hex_color,
+    ApiCommand, AxumAppState, CreateNodeRequest, CreateNodeResponse, UpdateNodeRequest,
+    parse_hex_color,
 };
 
 pub async fn create_node(
@@ -49,6 +50,49 @@ pub async fn get_all_nodes(State(state): State<AxumAppState>) -> impl IntoRespon
     let shared = state.shared.read().unwrap();
     let nodes: Vec<_> = shared.nodes.values().cloned().collect();
     Json(nodes)
+}
+
+pub async fn update_node(
+    State(state): State<AxumAppState>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<UpdateNodeRequest>,
+) -> impl IntoResponse {
+    let color_rgb = {
+        let shared = state.shared.read().unwrap();
+        if !shared.nodes.contains_key(&id) {
+            return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "node not found"})))
+                .into_response();
+        }
+        match body.color.as_ref() {
+            None => None,
+            Some(s) => match parse_hex_color(s) {
+                Some(rgb) => Some(rgb),
+                None => shared.nodes.get(&id).and_then(|n| parse_hex_color(&n.color)),
+            },
+        }
+    };
+
+    let edges = body.edges.unwrap_or_default();
+    let position = Vec2::new(body.position.x, body.position.y);
+
+    let cmd = ApiCommand::UpdateNode {
+        uuid: id,
+        name: body.name,
+        data: body.data,
+        color: color_rgb,
+        edges,
+        position,
+    };
+
+    if state.cmd_tx.send(cmd).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": "server shutting down"})),
+        )
+            .into_response();
+    }
+
+    StatusCode::NO_CONTENT.into_response()
 }
 
 pub async fn delete_node(

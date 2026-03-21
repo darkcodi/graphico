@@ -1,8 +1,10 @@
+use std::collections::HashSet;
+
 use bevy::prelude::*;
 
 use super::components::{ChunkCoord, GraphNode};
-use super::events::{AddEdgeEvent, AddNodeEvent, DeleteNodeEvent};
-use super::model::{EdgeData, GraphData, NodeData, NodeId};
+use super::events::{AddEdgeEvent, AddNodeEvent, DeleteNodeEvent, UpdateNodeEvent};
+use super::model::{EdgeData, GraphData, NodeData, EdgeId, NodeId};
 use crate::render::nodes::{NodeRectTexture, estimate_text_size};
 use crate::spatial::grid::{SpatialGrid, CHUNK_SIZE};
 
@@ -106,6 +108,148 @@ pub fn process_add_edge_events(
         } else {
             grid.insert_cross_edge(id, src_chunk);
             grid.insert_cross_edge(id, tgt_chunk);
+        }
+    }
+}
+
+fn remove_single_edge(graph: &mut GraphData, grid: &mut SpatialGrid, edge_id: EdgeId) {
+    let Some(edge) = graph.edges.remove(&edge_id) else {
+        return;
+    };
+
+    let source = edge.source;
+    let target = edge.target;
+
+    if let Some(adj) = graph.adjacency.get_mut(&source) {
+        adj.retain(|eid| *eid != edge_id);
+    }
+    if let Some(adj) = graph.adjacency.get_mut(&target) {
+        adj.retain(|eid| *eid != edge_id);
+    }
+
+    let src_pos = graph.nodes.get(&source).map(|n| n.position);
+    let tgt_pos = graph.nodes.get(&target).map(|n| n.position);
+    let (src_pos, tgt_pos) = match (src_pos, tgt_pos) {
+        (Some(s), Some(t)) => (s, t),
+        _ => return,
+    };
+
+    let src_chunk = IVec2::new(
+        (src_pos.x / CHUNK_SIZE).floor() as i32,
+        (src_pos.y / CHUNK_SIZE).floor() as i32,
+    );
+    let tgt_chunk = IVec2::new(
+        (tgt_pos.x / CHUNK_SIZE).floor() as i32,
+        (tgt_pos.y / CHUNK_SIZE).floor() as i32,
+    );
+
+    if src_chunk == tgt_chunk {
+        grid.remove_edge(edge_id, src_chunk);
+    } else {
+        grid.remove_cross_edge(edge_id, src_chunk);
+        grid.remove_cross_edge(edge_id, tgt_chunk);
+    }
+}
+
+pub fn process_update_node_events(
+    mut events: MessageReader<UpdateNodeEvent>,
+    mut graph: ResMut<GraphData>,
+    mut grid: ResMut<SpatialGrid>,
+    mut edge_events: MessageWriter<AddEdgeEvent>,
+    mut node_query: Query<(&GraphNode, &mut ChunkCoord, &mut Transform, &mut Sprite)>,
+) {
+    for event in events.read() {
+        let node_id = event.node_id;
+        if !graph.nodes.contains_key(&node_id) {
+            continue;
+        }
+
+        let desired: HashSet<NodeId> = event.desired_neighbor_ids.iter().copied().collect();
+        let incident: Vec<EdgeId> = graph.adjacency.get(&node_id).cloned().unwrap_or_default();
+        let mut to_remove = Vec::new();
+        for &eid in &incident {
+            if let Some(edge) = graph.edges.get(&eid) {
+                let other = if edge.source == node_id {
+                    edge.target
+                } else {
+                    edge.source
+                };
+                if !desired.contains(&other) {
+                    to_remove.push(eid);
+                }
+            }
+        }
+        for eid in to_remove {
+            remove_single_edge(&mut graph, &mut grid, eid);
+        }
+
+        let Some(node_data) = graph.nodes.get_mut(&node_id) else {
+            continue;
+        };
+
+        let old_pos = node_data.position;
+        let old_chunk = IVec2::new(
+            (old_pos.x / CHUNK_SIZE).floor() as i32,
+            (old_pos.y / CHUNK_SIZE).floor() as i32,
+        );
+
+        let position = event.position;
+        let size = estimate_text_size(&event.name);
+
+        node_data.position = position;
+        node_data.name = event.name.clone();
+        node_data.data = event.data.clone();
+        node_data.color = event.color;
+        node_data.size = size;
+
+        let new_chunk = IVec2::new(
+            (position.x / CHUNK_SIZE).floor() as i32,
+            (position.y / CHUNK_SIZE).floor() as i32,
+        );
+
+        if old_chunk != new_chunk {
+            grid.remove_node(node_id, old_chunk);
+            grid.insert_node(node_id, new_chunk);
+        }
+
+        if let Some(ent) = node_data.entity
+            && let Ok((gn, mut chunk_coord, mut transform, mut sprite)) = node_query.get_mut(ent)
+            && gn.id == node_id
+        {
+            chunk_coord.x = new_chunk.x;
+            chunk_coord.y = new_chunk.y;
+            transform.translation.x = position.x;
+            transform.translation.y = position.y;
+            sprite.color = event.color;
+            sprite.custom_size = Some(size);
+        }
+
+        let neighbors_now: HashSet<NodeId> = graph
+            .adjacency
+            .get(&node_id)
+            .map(|ids| {
+                ids.iter()
+                    .filter_map(|eid| {
+                        graph.edges.get(eid).map(|edge| {
+                            if edge.source == node_id {
+                                edge.target
+                            } else {
+                                edge.source
+                            }
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        for &target_id in &event.desired_neighbor_ids {
+            if !neighbors_now.contains(&target_id) {
+                edge_events.write(AddEdgeEvent {
+                    source: node_id,
+                    target: target_id,
+                    color: Color::srgba(0.5, 0.5, 0.5, 0.4),
+                });
+            }
         }
     }
 }

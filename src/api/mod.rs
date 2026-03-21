@@ -3,12 +3,12 @@ pub mod state;
 
 use std::sync::{Mutex, mpsc, Arc, RwLock};
 
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, post, put};
 use axum::Router;
 use bevy::prelude::*;
 use rand::Rng;
 
-use crate::graph::events::{AddEdgeEvent, AddNodeEvent, DeleteNodeEvent};
+use crate::graph::events::{AddEdgeEvent, AddNodeEvent, DeleteNodeEvent, UpdateNodeEvent};
 use crate::graph::model::GraphData;
 use crate::GraphSystems;
 
@@ -39,6 +39,7 @@ impl Plugin for ApiPlugin {
                 let router = Router::new()
                     .route("/node", post(handlers::create_node))
                     .route("/node/{id}", get(handlers::get_node))
+                    .route("/node/{id}", put(handlers::update_node))
                     .route("/node/{id}", delete(handlers::delete_node))
                     .route("/nodes", get(handlers::get_all_nodes))
                     .with_state(axum_state);
@@ -73,6 +74,7 @@ fn api_command_system(
     mut node_events: MessageWriter<AddNodeEvent>,
     mut edge_events: MessageWriter<AddEdgeEvent>,
     mut delete_events: MessageWriter<DeleteNodeEvent>,
+    mut update_events: MessageWriter<UpdateNodeEvent>,
 ) {
     let mut rng = rand::rng();
 
@@ -112,6 +114,49 @@ fn api_command_system(
                         });
                     }
                 }
+            }
+            ApiCommand::UpdateNode {
+                uuid,
+                name,
+                data,
+                color,
+                edges,
+                position,
+            } => {
+                let Some(&node_id) = registry.uuid_to_node.get(&uuid) else {
+                    continue;
+                };
+
+                let bevy_color = match color {
+                    Some([r, g, b]) => Color::srgb(r, g, b),
+                    None => graph
+                        .nodes
+                        .get(&node_id)
+                        .map(|n| n.color)
+                        .unwrap_or(Color::WHITE),
+                };
+
+                let mut seen = std::collections::HashSet::new();
+                let mut desired_neighbor_ids = Vec::new();
+                for target_uuid in edges {
+                    if let Some(&target_node_id) = registry.uuid_to_node.get(&target_uuid) {
+                        if target_node_id == node_id {
+                            continue;
+                        }
+                        if seen.insert(target_node_id) {
+                            desired_neighbor_ids.push(target_node_id);
+                        }
+                    }
+                }
+
+                update_events.write(UpdateNodeEvent {
+                    node_id,
+                    name,
+                    data,
+                    color: bevy_color,
+                    position,
+                    desired_neighbor_ids,
+                });
             }
             ApiCommand::DeleteNode { uuid } => {
                 if let Some(node_id) = registry.uuid_to_node.get(&uuid).copied() {

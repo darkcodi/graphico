@@ -37,11 +37,31 @@ pub struct CreateNodeResponse {
     pub id: Uuid,
 }
 
+/// Same JSON shape as [`CreateNodeRequest`]. For `color`, `None` means keep the current color.
+#[derive(Deserialize)]
+pub struct UpdateNodeRequest {
+    pub name: String,
+    #[serde(default)]
+    pub data: String,
+    pub color: Option<String>,
+    pub edges: Option<Vec<Uuid>>,
+    pub position: ApiPosition,
+}
+
 pub enum ApiCommand {
     CreateNode {
         uuid: Uuid,
         name: String,
         data: String,
+        color: Option<[f32; 3]>,
+        edges: Vec<Uuid>,
+        position: Vec2,
+    },
+    UpdateNode {
+        uuid: Uuid,
+        name: String,
+        data: String,
+        /// `None` = keep existing node color.
         color: Option<[f32; 3]>,
         edges: Vec<Uuid>,
         position: Vec2,

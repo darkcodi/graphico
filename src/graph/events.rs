@@ -24,3 +24,13 @@ pub struct AddEdgeEvent {
 pub struct DeleteNodeEvent {
     pub id: NodeId,
 }
+
+#[derive(Message)]
+pub struct UpdateNodeEvent {
+    pub node_id: NodeId,
+    pub name: String,
+    pub data: String,
+    pub color: Color,
+    pub position: Vec2,
+    pub desired_neighbor_ids: Vec<NodeId>,
+}
