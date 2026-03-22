@@ -23,6 +23,20 @@ pub struct InspectorNodeLink {
     pub node_id: NodeId,
 }
 
+fn inspector_link_label(nid: NodeId, graph: &GraphData, registry: &NodeUuidRegistry) -> String {
+    if let Some(data) = graph.nodes.get(&nid) {
+        let name = data.name.trim();
+        if !name.is_empty() {
+            return name.to_string();
+        }
+    }
+    registry
+        .node_to_uuid
+        .get(&nid)
+        .map(|u| u.to_string())
+        .unwrap_or_else(|| format!("{}", nid.0))
+}
+
 pub fn setup_inspector(mut commands: Commands) {
     commands
         .spawn((
@@ -177,11 +191,7 @@ pub fn update_inspector(
                     TextColor(Color::srgba(0.9, 0.9, 0.9, 0.95)),
                 ));
                 for nid in neighbor_ids.iter().copied() {
-                    let label = registry
-                        .node_to_uuid
-                        .get(&nid)
-                        .map(|u| u.to_string())
-                        .unwrap_or_else(|| format!("{}", nid.0));
+                    let label = inspector_link_label(nid, &graph, &registry);
                     parent
                         .spawn((
                             Button,
@@ -230,11 +240,7 @@ pub fn update_inspector(
                     TextColor(Color::srgba(0.9, 0.9, 0.9, 0.95)),
                 ));
                 for oid in overlap_ids.iter().copied() {
-                    let label = registry
-                        .node_to_uuid
-                        .get(&oid)
-                        .map(|u| u.to_string())
-                        .unwrap_or_else(|| format!("{}", oid.0));
+                    let label = inspector_link_label(oid, &graph, &registry);
                     parent
                         .spawn((
                             Button,
