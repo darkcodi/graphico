@@ -6,7 +6,7 @@ use bevy::prelude::{Color, Vec2};
 use uuid::Uuid;
 
 use super::state::{
-    ApiCommand, ApiPosition, AxumAppState, BulkCreateNodesRequest, BulkCreateNodesResponse,
+    ApiCommand, AxumAppState, BulkCreateNodesRequest, BulkCreateNodesResponse, Coordinates,
     CreateNodeRequest, CreateNodeResponse, UpdateNodeRequest, color_to_hex, parse_hex_color,
 };
 
@@ -149,7 +149,7 @@ pub async fn update_node(
             node.data = data;
             node.color = color_hex;
             node.edges = edges;
-            node.position = ApiPosition {
+            node.position = Coordinates {
                 x: position.x,
                 y: position.y,
             };

@@ -33,7 +33,7 @@
               "type": "string"
             },
             "position": {
-              "$ref": "#/$defs/ApiPosition"
+              "$ref": "#/$defs/Coordinates"
             }
           },
           "required": [
@@ -47,7 +47,7 @@
       "nodes"
     ],
     "$defs": {
-      "ApiPosition": {
+      "Coordinates": {
         "properties": {
           "x": {
             "format": "float",

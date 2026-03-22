@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::graph::model::NodeId;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ApiPosition {
+pub struct Coordinates {
     pub x: f32,
     pub y: f32,
 }
@@ -19,7 +19,8 @@ pub struct ApiNode {
     pub data: String,
     pub color: String,
     pub edges: Vec<Uuid>,
-    pub position: ApiPosition,
+    pub position: Coordinates,
+    pub size: Coordinates,
 }
 
 #[derive(Deserialize)]
@@ -29,7 +30,7 @@ pub struct CreateNodeRequest {
     pub data: String,
     pub color: Option<String>,
     pub edges: Option<Vec<Uuid>>,
-    pub position: ApiPosition,
+    pub position: Coordinates,
 }
 
 #[derive(Serialize)]
@@ -54,7 +55,7 @@ pub struct UpdateNodeRequest {
     pub data: Option<String>,
     pub color: Option<String>,
     pub edges: Option<Vec<Uuid>>,
-    pub position: Option<ApiPosition>,
+    pub position: Option<Coordinates>,
 }
 
 pub enum ApiCommand {

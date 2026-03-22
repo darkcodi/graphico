@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::graph::model::GraphData;
 
-use super::state::{ApiNode, ApiPosition, NodeUuidRegistry, color_to_hex};
+use super::state::{ApiNode, Coordinates, NodeUuidRegistry, color_to_hex};
 
 /// Build the API-facing snapshot from the live graph (single source of truth for persistence).
 pub fn build_api_snapshot(
@@ -44,9 +44,13 @@ pub fn build_api_snapshot(
                 data: node_data.data.clone(),
                 color: color_to_hex(&node_data.color),
                 edges: neighbor_uuids,
-                position: ApiPosition {
+                position: Coordinates {
                     x: node_data.position.x,
                     y: node_data.position.y,
+                },
+                size: Coordinates {
+                    x: node_data.size.x,
+                    y: node_data.size.y,
                 },
             },
         );

@@ -9,7 +9,7 @@ use rusqlite::{params, Connection, TransactionBehavior};
 use uuid::Uuid;
 
 use crate::api::state::{
-    ApiCommand, ApiNode, ApiPosition, NodeUuidRegistry, SharedStateHandle, parse_hex_color,
+    ApiCommand, ApiNode, Coordinates, NodeUuidRegistry, SharedStateHandle, parse_hex_color,
 };
 
 /// Override with `GRAPHICO_DB_PATH` to use a custom database file.
@@ -30,6 +30,7 @@ pub fn open_connection(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
     apply_pragmas(&conn)?;
     create_schema(&conn)?;
+    migrate_schema(&conn)?;
     Ok(conn)
 }
 
@@ -51,7 +52,7 @@ fn create_schema(conn: &Connection) -> rusqlite::Result<()> {
             key TEXT PRIMARY KEY,
             value INTEGER NOT NULL
         );
-        INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', 1);
+        INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', 2);
 
         CREATE TABLE IF NOT EXISTS nodes (
             id TEXT PRIMARY KEY NOT NULL,
@@ -60,9 +61,40 @@ fn create_schema(conn: &Connection) -> rusqlite::Result<()> {
             color TEXT NOT NULL,
             pos_x REAL NOT NULL,
             pos_y REAL NOT NULL,
-            edges_json TEXT NOT NULL
+            edges_json TEXT NOT NULL,
+            size_x REAL NOT NULL DEFAULT 0,
+            size_y REAL NOT NULL DEFAULT 0
         );
         ",
+    )?;
+    Ok(())
+}
+
+/// Add `size_x` / `size_y` to `nodes` when upgrading from older DBs (CREATE TABLE IF NOT EXISTS
+/// does not alter existing tables).
+fn migrate_schema(conn: &Connection) -> rusqlite::Result<()> {
+    let mut stmt = conn.prepare("PRAGMA table_info(nodes)")?;
+    let cols: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .collect();
+    drop(stmt);
+
+    if !cols.iter().any(|c| c == "size_x") {
+        conn.execute(
+            "ALTER TABLE nodes ADD COLUMN size_x REAL NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+    if !cols.iter().any(|c| c == "size_y") {
+        conn.execute(
+            "ALTER TABLE nodes ADD COLUMN size_y REAL NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+    conn.execute(
+        "UPDATE meta SET value = 2 WHERE key = 'schema_version'",
+        [],
     )?;
     Ok(())
 }
@@ -70,7 +102,7 @@ fn create_schema(conn: &Connection) -> rusqlite::Result<()> {
 /// Load all node rows from the database.
 pub fn load_all_nodes(conn: &Connection) -> rusqlite::Result<Vec<ApiNode>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, data, color, pos_x, pos_y, edges_json FROM nodes ORDER BY id",
+        "SELECT id, name, data, color, pos_x, pos_y, edges_json, size_x, size_y FROM nodes ORDER BY id",
     )?;
     let rows = stmt.query_map([], |row| {
         let id: String = row.get(0)?;
@@ -85,9 +117,13 @@ pub fn load_all_nodes(conn: &Connection) -> rusqlite::Result<Vec<ApiNode>> {
             data: row.get(2)?,
             color: row.get(3)?,
             edges,
-            position: ApiPosition {
+            position: Coordinates {
                 x: row.get(4)?,
                 y: row.get(5)?,
+            },
+            size: Coordinates {
+                x: row.get(7)?,
+                y: row.get(8)?,
             },
         })
     })?;
@@ -105,7 +141,7 @@ pub fn save_snapshot(conn: &mut Connection, snapshot: &HashMap<Uuid, ApiNode>) -
     for node in snapshot.values() {
         let edges_json = serde_json::to_string(&node.edges).unwrap_or_else(|_| "[]".into());
         tx.execute(
-            "INSERT INTO nodes (id, name, data, color, pos_x, pos_y, edges_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO nodes (id, name, data, color, pos_x, pos_y, edges_json, size_x, size_y) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 node.id.to_string(),
                 node.name,
@@ -114,6 +150,8 @@ pub fn save_snapshot(conn: &mut Connection, snapshot: &HashMap<Uuid, ApiNode>) -
                 node.position.x,
                 node.position.y,
                 edges_json,
+                node.size.x,
+                node.size.y,
             ],
         )?;
     }
@@ -307,7 +345,8 @@ mod tests {
                 data: "".into(),
                 color: "#FF0000".into(),
                 edges: vec![b],
-                position: ApiPosition { x: 1.0, y: 2.0 },
+                position: Coordinates { x: 1.0, y: 2.0 },
+                size: Coordinates { x: 10.0, y: 20.0 },
             },
         );
         snapshot.insert(
@@ -318,7 +357,8 @@ mod tests {
                 data: "x".into(),
                 color: "#00FF00".into(),
                 edges: vec![a],
-                position: ApiPosition { x: 3.0, y: 4.0 },
+                position: Coordinates { x: 3.0, y: 4.0 },
+                size: Coordinates { x: 30.0, y: 40.0 },
             },
         );
 
@@ -334,5 +374,9 @@ mod tests {
         assert_eq!(by_id[&b].edges, vec![a]);
         assert_eq!(by_id[&a].position.x, 1.0);
         assert_eq!(by_id[&b].name, "B");
+        assert_eq!(by_id[&a].size.x, 10.0);
+        assert_eq!(by_id[&a].size.y, 20.0);
+        assert_eq!(by_id[&b].size.x, 30.0);
+        assert_eq!(by_id[&b].size.y, 40.0);
     }
 }

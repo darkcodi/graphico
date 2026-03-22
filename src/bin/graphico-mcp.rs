@@ -22,7 +22,7 @@ struct GraphicoMcp {
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
-struct ApiPosition {
+struct Coordinates {
     pub x: f32,
     pub y: f32,
 }
@@ -37,7 +37,7 @@ struct GraphicoCreateNodeArgs {
     /// Neighbor node UUIDs (strings accepted by the HTTP API).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edges: Option<Vec<String>>,
-    pub position: ApiPosition,
+    pub position: Coordinates,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -59,7 +59,7 @@ struct GraphicoUpdateNodeArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edges: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub position: Option<ApiPosition>,
+    pub position: Option<Coordinates>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
