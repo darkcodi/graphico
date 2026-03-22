@@ -26,7 +26,7 @@ impl Plugin for UiPlugin {
                     (
                         selection::handle_selection,
                         selection::handle_hover,
-                        inspector::handle_inspector_overlap_click.after(selection::handle_selection),
+                        inspector::handle_inspector_node_link_click.after(selection::handle_selection),
                     )
                         .in_set(GraphSystems::Selection),
                     selection::apply_highlights.in_set(GraphSystems::VisibilityUpdate),
