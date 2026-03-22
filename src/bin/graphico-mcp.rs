@@ -81,7 +81,7 @@ impl GraphicoMcp {
     #[tool(
         description = "Create a new graph node. Returns JSON with the new node's id."
     )]
-    async fn graphico_create_node(
+    async fn create_node(
         &self,
         Parameters(args): Parameters<GraphicoCreateNodeArgs>,
     ) -> Result<CallToolResult, McpError> {
@@ -107,7 +107,7 @@ impl GraphicoMcp {
     #[tool(
         description = "Create multiple graph nodes in one request. Returns JSON with `ids` in the same order as the input."
     )]
-    async fn graphico_create_nodes_bulk(
+    async fn create_nodes_bulk(
         &self,
         Parameters(args): Parameters<GraphicoCreateNodesBulkArgs>,
     ) -> Result<CallToolResult, McpError> {
@@ -135,7 +135,7 @@ impl GraphicoMcp {
     }
 
     #[tool(description = "Fetch a single graph node by UUID.")]
-    async fn graphico_get_node(
+    async fn get_node(
         &self,
         Parameters(args): Parameters<GraphicoNodeIdArgs>,
     ) -> Result<CallToolResult, McpError> {
@@ -151,7 +151,7 @@ impl GraphicoMcp {
     }
 
     #[tool(description = "List all graph nodes.")]
-    async fn graphico_list_nodes(&self) -> Result<CallToolResult, McpError> {
+    async fn list_nodes(&self) -> Result<CallToolResult, McpError> {
         let url = format!("{}/nodes", self.base.trim_end_matches('/'));
         let resp = self
             .client
@@ -165,7 +165,7 @@ impl GraphicoMcp {
     #[tool(
         description = "Partially update a graph node. Only `id` is required; omit other fields to leave them unchanged."
     )]
-    async fn graphico_update_node(
+    async fn update_node(
         &self,
         Parameters(args): Parameters<GraphicoUpdateNodeArgs>,
     ) -> Result<CallToolResult, McpError> {
@@ -183,7 +183,7 @@ impl GraphicoMcp {
     }
 
     #[tool(description = "Delete a graph node by UUID.")]
-    async fn graphico_delete_node(
+    async fn delete_node(
         &self,
         Parameters(args): Parameters<GraphicoNodeIdArgs>,
     ) -> Result<CallToolResult, McpError> {
@@ -201,7 +201,7 @@ impl GraphicoMcp {
     #[tool(
         description = "Delete every node in the graph (no-op if the graph is already empty)."
     )]
-    async fn graphico_delete_all_nodes(&self) -> Result<CallToolResult, McpError> {
+    async fn delete_all_nodes(&self) -> Result<CallToolResult, McpError> {
         let url = format!("{}/nodes", self.base.trim_end_matches('/'));
         let resp = self
             .client
