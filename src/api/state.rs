@@ -103,7 +103,7 @@ pub struct ApiCommandSender(pub mpsc::Sender<ApiCommand>);
 pub struct NodeUuidRegistry {
     pub uuid_to_node: HashMap<Uuid, NodeId>,
     pub node_to_uuid: HashMap<NodeId, Uuid>,
-}
+}   
 
 impl NodeUuidRegistry {
     pub fn register(&mut self, uuid: Uuid, node_id: NodeId) {

@@ -1,5 +1,6 @@
 use bevy::diagnostic::{EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
+use graphico::graph::overlaps::overlapping_node_count;
 use graphico::GraphicoPlugin;
 
 fn main() {
@@ -51,12 +52,14 @@ fn diagnostics_overlay(
         .unwrap_or(1.0);
 
     let chunks = grid.cells.len();
+    let overlap_nodes = overlapping_node_count(&graph);
 
     let info = format!(
-        "FPS: {:.0} | Nodes: {} | Edges: {} | Chunks: {} | Entities: {} | Zoom: {:.2}",
+        "FPS: {:.0} | Nodes: {} | Edges: {} | Overlap nodes: {} | Chunks: {} | Entities: {} | Zoom: {:.2}",
         fps,
         graph.node_count(),
         graph.edge_count(),
+        overlap_nodes,
         chunks,
         entity_count,
         zoom,

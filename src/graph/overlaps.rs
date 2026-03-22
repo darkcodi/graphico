@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::graph::model::{GraphData, NodeData, NodeId};
 
@@ -50,6 +50,31 @@ pub fn overlapping_node_ids(graph: &GraphData, node_id: NodeId) -> Vec<NodeId> {
     }
     out.sort_by_key(|id| id.0);
     out
+}
+
+/// Number of nodes that overlap at least one other node (positive-area bounds intersection).
+pub fn overlapping_node_count(graph: &GraphData) -> usize {
+    let ids: Vec<NodeId> = graph.nodes.keys().copied().collect();
+    let mut with_overlap: HashSet<NodeId> = HashSet::new();
+    for i in 0..ids.len() {
+        let a_id = ids[i];
+        let Some(a_data) = graph.nodes.get(&a_id) else {
+            continue;
+        };
+        let aabb_a = aabb_from_node_data(a_data);
+        for j in (i + 1)..ids.len() {
+            let b_id = ids[j];
+            let Some(b_data) = graph.nodes.get(&b_id) else {
+                continue;
+            };
+            let aabb_b = aabb_from_node_data(b_data);
+            if aabbs_overlap(&aabb_a, &aabb_b) {
+                with_overlap.insert(a_id);
+                with_overlap.insert(b_id);
+            }
+        }
+    }
+    with_overlap.len()
 }
 
 /// Symmetric overlap adjacency: each key lists all other `NodeId`s that overlap it.
