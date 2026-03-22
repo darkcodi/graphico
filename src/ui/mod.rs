@@ -23,7 +23,11 @@ impl Plugin for UiPlugin {
                 Update,
                 (
                     fix_overlaps::handle_fix_overlaps_click.before(GraphSystems::EventProcessing),
-                    (selection::handle_selection, selection::handle_hover)
+                    (
+                        selection::handle_selection,
+                        selection::handle_hover,
+                        inspector::handle_inspector_overlap_click.after(selection::handle_selection),
+                    )
                         .in_set(GraphSystems::Selection),
                     selection::apply_highlights.in_set(GraphSystems::VisibilityUpdate),
                     inspector::update_inspector.after(GraphSystems::Selection),
