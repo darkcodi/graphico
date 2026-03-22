@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::api::state::{color_to_hex, NodeUuidRegistry};
 use crate::graph::components::{GraphNode, Selected};
 use crate::graph::model::GraphData;
+use crate::graph::overlaps::overlapping_node_ids;
 
 #[derive(Component)]
 pub struct InspectorPanel;
@@ -78,8 +79,25 @@ pub fn update_inspector(
 
     let color_hex = color_to_hex(&node_data.color);
 
+    let overlap_ids = overlapping_node_ids(&graph, graph_node.id);
+    let overlap_lines: String = if overlap_ids.is_empty() {
+        "Overlaps: (none)".to_string()
+    } else {
+        let mut s = String::from("Overlaps:");
+        for oid in overlap_ids {
+            let line = registry
+                .node_to_uuid
+                .get(&oid)
+                .map(|u| u.to_string())
+                .unwrap_or_else(|| format!("{}", oid.0));
+            s.push('\n');
+            s.push_str(&format!("  {}", line));
+        }
+        s
+    };
+
     let mut content = format!(
-        "ID: {}\nName: {}\nColor: {}\nPos: ({:.0}, {:.0})\nSize: {:.0} x {:.0}\nEdges: {}",
+        "ID: {}\nName: {}\nColor: {}\nPos: ({:.0}, {:.0})\nSize: {:.0} x {:.0}\nEdges: {}\n{}",
         uuid_str,
         node_data.name,
         color_hex,
@@ -88,6 +106,7 @@ pub fn update_inspector(
         node_data.size.x,
         node_data.size.y,
         edge_count,
+        overlap_lines,
     );
 
     if !node_data.data.is_empty() {

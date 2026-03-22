@@ -1,6 +1,7 @@
 pub mod components;
 pub mod events;
 pub mod model;
+pub mod overlaps;
 pub mod systems;
 
 use bevy::prelude::*;
