@@ -21,6 +21,9 @@ pub struct ApiNode {
     pub edges: Vec<Uuid>,
     pub position: Coordinates,
     pub size: Coordinates,
+    /// UUIDs of other nodes whose axis-aligned bounds (center `position`, `size`) intersect with positive area.
+    #[serde(default)]
+    pub overlaps: Vec<Uuid>,
 }
 
 #[derive(Deserialize)]

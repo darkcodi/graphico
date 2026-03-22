@@ -125,6 +125,7 @@ pub fn load_all_nodes(conn: &Connection) -> rusqlite::Result<Vec<ApiNode>> {
                 x: row.get(7)?,
                 y: row.get(8)?,
             },
+            overlaps: Vec::new(),
         })
     })?;
 
@@ -347,6 +348,7 @@ mod tests {
                 edges: vec![b],
                 position: Coordinates { x: 1.0, y: 2.0 },
                 size: Coordinates { x: 10.0, y: 20.0 },
+                overlaps: vec![],
             },
         );
         snapshot.insert(
@@ -359,6 +361,7 @@ mod tests {
                 edges: vec![a],
                 position: Coordinates { x: 3.0, y: 4.0 },
                 size: Coordinates { x: 30.0, y: 40.0 },
+                overlaps: vec![],
             },
         );
 
