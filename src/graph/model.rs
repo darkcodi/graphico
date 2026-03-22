@@ -51,4 +51,24 @@ impl GraphData {
     pub fn edge_count(&self) -> usize {
         self.edges.len()
     }
+
+    /// Neighbor node ids from incident edges (sorted, deduplicated).
+    pub fn neighbor_node_ids(&self, node_id: NodeId) -> Vec<NodeId> {
+        let mut out = Vec::new();
+        if let Some(edge_ids) = self.adjacency.get(&node_id) {
+            for edge_id in edge_ids {
+                if let Some(edge) = self.edges.get(edge_id) {
+                    let other = if edge.source == node_id {
+                        edge.target
+                    } else {
+                        edge.source
+                    };
+                    out.push(other);
+                }
+            }
+        }
+        out.sort_by_key(|n| n.0);
+        out.dedup();
+        out
+    }
 }
